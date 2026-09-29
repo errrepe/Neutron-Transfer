@@ -1,0 +1,102 @@
+# AUTH — SRP, 2FA, Session, Keychain
+
+> Endpoints oficiais apenas. Header obrigatório: `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha`.
+
+## 1. Fluxo completo
+
+```
+1. POST /auth/v4/info { Username }
+   → { Version, Modulus (hex), ServerEphemeral (hex), Salt, SRPSession }
+
+2. SRP-6a local:
+   clientEphemeral (A), clientProof (M1) = H(A, B, S)
+   usando password + salt + modulus
+
+3. POST /auth { Username, ClientEphemeral, ClientProof, SRPSession }
+   → 200 { AccessToken, RefreshToken, UID, ExpiresIn, Scope }
+   → 422 com 2FA required → passo 4
+   → 400/401 → erro auth (ver §5)
+   → 9001 → Human Verification exigida
+
+4. (se 2FA) POST /auth/v4/2fa { TwoFactorCode, SRPSession }
+   → 200 tokens como acima
+   Suporta TOTP (6 dígitos). `otp_secret` para setup não é usado no MVP
+   além de exibir instrução se conta exigir enrollment (fora de escopo).
+
+5. Unlock hierarchy:
+   GET /core/v4/users → User keys (encrypted)
+   GET /core/v4/addresses → Address keys
+   GET /drive/v4/shares → Share keys (vault)
+   GET /drive/v4/nodes/{id} → Node keys
+   GET session keys por arquivo (download/upload)
+   Descriptografa em cascata com passphrase derivada do SRP/password.
+
+6. Persist:
+   Keychain: refreshToken, addressKeys, shareKeys (kSecClassGenericPassword,
+   accessGroup app, `kSecAccessibleAfterFirstUnlock`, biometric se disponível)
+   Memória (actor): accessToken + expiry.
+
+7. Refresh:
+   POST /auth/v4/refresh { RefreshToken, UID }
+   → novos Access+Refresh (rotativo). Single-flight no SessionManager.
+   Agenda refresh em `expiresIn - 60s`.
+
+8. Logout / revoke:
+   POST /auth/v4/logout. Apaga Keychain + SwiftData session + memória.
+```
+
+## 2. SRP-6a detalhe
+
+- Implementação nativa Swift, sem binding incubating.
+- BigInt: usa lib SPM auditável (ex.: BigInt) — vetar antes de F2.
+- Hash: SHA256. `M1 = H(A | B | S)`, `M2 = H(A | M1 | K)` verificado do servidor.
+- Nunca logar `password`, `S`, `K`, `M1`, salt raw. Logs só com prefixos truncados para debug local opt-in.
+- Vetores de referência: `go-proton-api` (SRP), `rclone` backend protondrive.
+- Spike F2 deve passar contra conta de teste antes de seguir para listing.
+
+## 3. 2FA
+
+- `POST /auth/v4/2fa` com `{ TwoFactorCode: "123456" }`.
+- TOTP de 30s — validar skew de relógio via NTP antes de acusar código inválido.
+- Erros comuns: `8002` (código inválido/expirado), `8101` (muitas tentativas → backoff).
+- Fora de escopo MVP: FIDO2 / hardware key enrollment. Mensagem clara se conta exigir.
+
+## 4. Keychain
+
+- Serviço: `com.neutron.transfer.session`.
+- Contas: `uid.refresh`, `uid.address.{id}`, `uid.share.{id}`.
+- Nunca em UserDefaults, SwiftData, plist, logs, crash reports.
+- Acesso: `kSecAccessibleAfterFirstUnlockThisDeviceOnly` por padrão.
+- Migração cripto 2026/2027: versionar entradas (`v1.` prefix) para re-unlock limpo.
+
+## 5. Erros comuns
+
+| Código / HTTP | Significado | Ação |
+|---|---|---|
+| 400 Bad Request | payload SRP inválido | re-gerar A/M1, checar hex padding |
+| 401 Unauthorized | proof errado / senha errada | não retry cego, pedir senha |
+| 422 2FA required | falta TOTP | pedir código, POST /auth/v4/2fa |
+| 8002 | TOTP inválido | checar NTP skew, pedir novo código |
+| 9001 HV required | Human Verification | pausar fila, abrir fluxo HV, retry após |
+| 429 | rate limit | backoff exponencial + jitter, reduzir paralelismo |
+| 500/502/503 | transitório servidor | retry limitado, surface após N tentativas |
+
+## 6. NTP / Clock skew
+
+- Antes de SRP e TOTP, faz `HEAD` ou lê `Date` header da resposta `/auth/v4/info`.
+- Se `abs(serverDate - localDate) > 60s`, avisa usuário e ajusta cálculo TOTP / expiração.
+- Não altera relógio do sistema, só corrige lógica de expiração local.
+
+## 7. Referências de implementação
+
+- `go-proton-api` — fluxo SRP + unlock hierarchy (Go, leitura obrigatória).
+- `rclone` backend `protondrive` — chunking + retry + mapeamento de erros.
+- SDK oficial `ProtonDriveApps/sdk` — apenas `Client` como referência de endpoints; auth/session/address provider NÃO vêm do SDK e devem ser implementados aqui.
+- `sdk-swift` (binding C# → Swift, 2 commits, instável) — explicitamente NÃO usado (ver `SDK-STRATEGY.md`).
+
+## 8. Segurança
+
+- Zero telemetria de credenciais. Nenhum log com tokens/keys.
+- `AccessToken` só em memória (`SessionManager` actor).
+- `RefreshToken` só em Keychain.
+- Veja `SECURITY.md`.
