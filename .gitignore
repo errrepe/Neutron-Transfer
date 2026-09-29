@@ -1,0 +1,52 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Xcode
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcworkspace/xcshareddata/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+xcuserdata/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM/
+
+# Swift / SPM
+.build/
+.swiftpm/
+Package.resolved
+*.o
+*.d
+
+# SwiftData / CoreData local stores (dev only)
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Keychain / secrets — never commit
+*.p12
+*.mobileprovision
+*.provisionprofile
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs / temp
+*.log
+tmp/
