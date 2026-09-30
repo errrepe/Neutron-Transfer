@@ -48,11 +48,18 @@
 ## 2. SRP-6a detalhe
 
 - Implementação nativa Swift, sem binding incubating.
-- BigInt: usa lib SPM auditável (ex.: BigInt) — vetar antes de F2.
-- Hash: SHA256. `M1 = H(A | B | S)`, `M2 = H(A | M1 | K)` verificado do servidor.
+- BigInt: `Core/Crypto/BigUInt.swift` minimalista vendored (limbs UInt64 LE, modMul/modPow O(n²),
+  formato wire little-endian igual a go-srp `toInt/fromInt`). Suficiente para 1 login; sem SPM.
+- Hash: `expandHash = SHA512(d||0)||SHA512(d||1)||SHA512(d||2)||SHA512(d||3)` (256 bytes),
+  `M1 = expand(A||B||S)`, `M2 = expand(A||M1||S)` verificado do servidor, gerador sempre 2, 2048-bit.
+- Password v3/v4: `bcrypt($2y$10$, dotSlashBase64(salt+"proton"))` + expand — bcrypt GATADO em
+  `BcryptHasher` (F2b adiciona swift-bcrypt SPM; spike lança `bcryptNotAvailable`).
+- Modulus PGP-clearsign: verificação GATADA (F2b via GopenPGP bridge); spike falha fechado com
+  `invalidModulusSignature` se o payload ainda vier armored.
 - Nunca logar `password`, `S`, `K`, `M1`, salt raw. Logs só com prefixos truncados para debug local opt-in.
 - Vetores de referência: `go-proton-api` (SRP), `rclone` backend protondrive.
-- Spike F2 deve passar contra conta de teste antes de seguir para listing.
+- Spike F2 verificado (2026-09-29): expand=256B, `2^5 mod 13=6`, roundtrip LE, `md5("abc")=90015098…`,
+  header `x-pm-appversion` correto, build verde. Login real pendente de bcrypt (F2b).
 
 ## 3. 2FA
 
@@ -63,8 +70,9 @@
 
 ## 4. Keychain
 
-- Serviço: `com.neutron.transfer.session`.
-- Contas: `uid.refresh`, `uid.address.{id}`, `uid.share.{id}`.
+- Serviço implementado: `dev.neutron.transfer.session`, conta `proton-session`
+  (`Core/Security/KeychainStore.swift`, JSON `ProtonSession{uid,accessToken,refreshToken}`).
+  (Doc original previa `com.neutron.transfer.session` + contas por chave — convergir em F3.)
 - Nunca em UserDefaults, SwiftData, plist, logs, crash reports.
 - Acesso: `kSecAccessibleAfterFirstUnlockThisDeviceOnly` por padrão.
 - Migração cripto 2026/2027: versionar entradas (`v1.` prefix) para re-unlock limpo.

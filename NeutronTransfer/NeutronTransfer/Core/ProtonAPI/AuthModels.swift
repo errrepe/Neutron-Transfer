@@ -1,0 +1,86 @@
+// Neutron Transfer — Auth models mirroring go-proton-api manager_auth_types.go
+// Endpoints: POST /auth/v4/info, POST /auth/v4, POST /auth/v4/2fa, POST /auth/v4/refresh
+import Foundation
+
+struct AuthInfoRequest: Encodable, Sendable {
+    var username: String
+    enum CodingKeys: String, CodingKey { case username = "Username" }
+}
+
+struct AuthInfo: Decodable, Sendable {
+    /// Major SRP version (0...4). Current accounts use 4.
+    var version: Int
+    /// Modulus: base64 of clearsigned message (signature must be verified — TODO PGP).
+    var modulus: String
+    var salt: String
+    var serverEphemeral: String
+    var srpSession: String
+
+    enum CodingKeys: String, CodingKey {
+        case version = "Version"
+        case modulus = "Modulus"
+        case salt = "Salt"
+        case serverEphemeral = "ServerEphemeral"
+        case srpSession = "SRPSession"
+    }
+}
+
+struct AuthRequest: Encodable, Sendable {
+    var username: String
+    var clientEphemeral: String // base64
+    var clientProof: String     // base64
+    var srpSession: String
+    enum CodingKeys: String, CodingKey {
+        case username = "Username"
+        case clientEphemeral = "ClientEphemeral"
+        case clientProof = "ClientProof"
+        case srpSession = "SRPSession"
+    }
+}
+
+struct ProtonAuth: Decodable, Sendable {
+    var uid: String
+    var accessToken: String
+    var refreshToken: String
+    var serverProof: String
+    /// Present when account requires second factor.
+    var twoFA: TwoFAInfo?
+
+    enum CodingKeys: String, CodingKey {
+        case uid = "UID"
+        case accessToken = "AccessToken"
+        case refreshToken = "RefreshToken"
+        case serverProof = "ServerProof"
+        case twoFA = "2FA"
+    }
+}
+
+struct TwoFAInfo: Decodable, Sendable {
+    var enabled: Int?
+    var totp: Int?
+}
+
+struct Auth2FARequest: Encodable, Sendable {
+    var twoFACode: String
+    enum CodingKeys: String, CodingKey { case twoFACode = "TwoFactorCode" }
+}
+
+struct AuthRefreshRequest: Encodable, Sendable {
+    var uid: String
+    var refreshToken: String
+    var responseType = "token"
+    var grantType = "refresh_token"
+    var redirectURI = "https://protonmail.ch"
+    var state: String
+    var accessToken: String
+
+    enum CodingKeys: String, CodingKey {
+        case uid = "UID"
+        case refreshToken = "RefreshToken"
+        case responseType = "ResponseType"
+        case grantType = "GrantType"
+        case redirectURI = "RedirectURI"
+        case state = "State"
+        case accessToken = "AccessToken"
+    }
+}
