@@ -39,10 +39,10 @@ struct ContentView: View {
                 }
             case let .signedIn(uid):
                 Text("Signed in: \(uid)").font(.headline)
-                DriveBrowserView(sessions: model.sessionManager)
+                DriveBrowserView(sessions: model.sessionManager, addressKeys: model.addressKeys)
             }
             Spacer()
-            Text("F2b: real SRP login verified against test account. Drive listing is next (F3).")
+            Text("F3: end-to-end encrypted listing — names decrypted locally.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }

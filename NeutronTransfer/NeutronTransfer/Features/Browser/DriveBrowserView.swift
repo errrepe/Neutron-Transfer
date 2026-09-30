@@ -1,11 +1,11 @@
-// Neutron Transfer — minimal read-only Drive browser view (F3a).
+// Neutron Transfer — read-only Drive browser view (F3b: decrypted names).
 import SwiftUI
 
 struct DriveBrowserView: View {
     @State private var model: DriveBrowserViewModel
 
-    init(sessions: SessionManager) {
-        model = DriveBrowserViewModel(sessions: sessions)
+    init(sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey]) {
+        model = DriveBrowserViewModel(sessions: sessions, addressKeys: addressKeys)
     }
 
     var body: some View {
@@ -18,23 +18,32 @@ struct DriveBrowserView: View {
             Text(model.status).font(.caption).foregroundStyle(.secondary)
             if !model.volumes.isEmpty {
                 ForEach(model.volumes, id: \.volumeID) { v in
-                    Text("Used \(bytes(v.usedSpace))" + (v.maxSpace.map { " of \(bytes($0))" } ?? "") + " · \(model.sharesCount) shares")
+                    Text("Used \(bytes(v.usedSpace))" + (v.maxSpace.map { " of \(bytes($0))" } ?? "") + " · \(model.sections.count) shares")
                         .font(.caption)
                 }
             }
-            List(model.rootChildren) { link in
-                HStack {
-                    Image(systemName: link.isFolder ? "folder" : "doc")
-                    VStack(alignment: .leading) {
-                        Text(String(link.name.prefix(24)) + "…")
-                            .font(.body).lineLimit(1)
-                            .help(link.name)
-                        Text("\(link.isFolder ? "Folder" : "File") · \(bytes(link.size)) · \(date(link.modifyTime))")
-                            .font(.caption).foregroundStyle(.secondary)
+            List {
+                ForEach(model.sections) { section in
+                    SwiftUI.Section(section.rootName) {
+                        if let note = section.note {
+                            Text(note).font(.caption).foregroundStyle(.orange)
+                        }
+                        ForEach(section.rows) { row in
+                            HStack {
+                                Image(systemName: row.link.isFolder ? "folder" : "doc")
+                                VStack(alignment: .leading) {
+                                    Text(row.name)
+                                        .font(.body).lineLimit(1)
+                                        .help(row.name)
+                                    Text("\(row.link.isFolder ? "Folder" : "File") · \(bytes(row.link.size)) · \(date(row.link.modifyTime))")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
                 }
             }
-            Text("Names are end-to-end encrypted; decryption lands in F3b.")
+            Text("Names are decrypted locally; seeds never leave memory.")
                 .font(.caption2).foregroundStyle(.tertiary)
         }
         .padding()
