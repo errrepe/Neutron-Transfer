@@ -74,13 +74,16 @@ enum AESBlock {
         return Data(out)
     }
 
-    /// OpenPGP CFB decrypt with prefix resync (RFC 4880 §13.9):
+    /// OpenPGP CFB decrypt with prefix (RFC 4880 §13.9 + go-crypto ocfb.go):
     /// FR starts at `iv` (zeros when nil, as in SED packets); the first
     /// blockSize octets are random prefix, the next 2 are check octets
-    /// (copies of the LAST two prefix octets); then FR resyncs to
-    /// c[2..<blockSize+2] and standard CFB continues.
+    /// (copies of the LAST two prefix octets).
+    /// `resync` selects the post-prefix behavior (go-crypto OCFBResyncOption):
+    /// true (SED tag 9) re-encrypts c[2..<BS+2] as the new FR; false
+    /// (SEIPDv1 tag 18, MDC) continues the stream with the check ciphertext
+    /// spliced into FR (no re-encryption).
     /// Returns full plaintext INCLUDING the prefix (caller strips blockSize+2).
-    static func openPGPcfbDecrypt(ciphertext: Data, key: Data, blockSize: Int = 16, iv: Data? = nil) throws -> Data {
+    static func openPGPcfbDecrypt(ciphertext: Data, key: Data, blockSize: Int = 16, iv: Data? = nil, resync: Bool = true) throws -> Data {
         guard ciphertext.count >= blockSize + 2 else { throw AESError.badBlockLength }
         let c = Array(ciphertext)
         var out: [UInt8] = []
@@ -99,18 +102,36 @@ enum AESBlock {
         guard out[blockSize] == out[blockSize - 2], out[blockSize + 1] == out[blockSize - 1] else {
             throw AESError.checkBytesMismatch
         }
-        fr = Array(c[2..<(blockSize + 2)])
-        var pos = blockSize + 2
-        while pos < c.count {
-            fre = try Array(encrypt(block: Data(fr), key: key))
-            let end = min(pos + blockSize, c.count)
-            for i in pos..<end {
-                out.append(c[i] ^ fre[i - pos])
+        if resync {
+            fr = Array(c[2..<(blockSize + 2)])
+            var pos = blockSize + 2
+            while pos < c.count {
+                fre = try Array(encrypt(block: Data(fr), key: key))
+                let end = min(pos + blockSize, c.count)
+                for i in pos..<end {
+                    out.append(c[i] ^ fre[i - pos])
+                }
+                if end - pos == blockSize {
+                    fr = Array(c[pos..<end])
+                }
+                pos = end
             }
-            if end - pos == blockSize {
-                fr = Array(c[pos..<end])
+        } else {
+            // No resync (SEIPDv1): splice check ciphertext into FR, continue.
+            fre[0] = c[blockSize]
+            fre[1] = c[blockSize + 1]
+            var used = 2
+            var pos = blockSize + 2
+            while pos < c.count {
+                if used == fre.count {
+                    fre = try Array(encrypt(block: Data(fre), key: key))
+                    used = 0
+                }
+                out.append(c[pos] ^ fre[used])
+                fre[used] = c[pos]
+                used += 1
+                pos += 1
             }
-            pos = end
         }
         return Data(out)
     }

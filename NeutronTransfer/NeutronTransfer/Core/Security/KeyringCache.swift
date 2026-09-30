@@ -71,30 +71,11 @@ actor KeyringCache {
         return out
     }
 
-    /// Parses + decrypts every secret packet in an armored key, verifying seeds.
+    /// Parses + decrypts every secret packet in an armored key (delegates to
+    /// DecryptChain), recording seeds in memory.
     func unlockSecretKeys(armored: String, passphrase: Data, idPrefix: String) throws -> [UnlockedKey] {
-        let raw = try Armor.decode(armored)
-        var out: [UnlockedKey] = []
-        for packet in try PGPPackets.parse(raw) where packet.tag == 5 || packet.tag == 7 {
-            let sk = try SecretKeyPacket.parse(body: packet.body)
-            let plain = try SecretKeyUnlock.decrypt(sk, passphrase: passphrase)
-            let seed = sk.publicAlgo == 18
-                ? try SecretKeyUnlock.ecdhScalar(plaintext: plain)
-                : try SecretKeyUnlock.secretScalar(plaintext: plain)
-            let point = sk.publicPoint ?? Data()
-            let ok = sk.publicAlgo == 22
-                ? SecretKeyVerify.ed25519PublicMatches(seed: seed, pointMPI: point)
-                : SecretKeyVerify.x25519PublicMatches(scalar: seed, pointMPI: point)
-            guard ok else { throw ProtonAPIError.keyVerificationFailed }
-            let id = "\(idPrefix)#\(sk.publicAlgo)"
-            seeds[id] = seed
-            out.append(UnlockedKey(
-                keyID: id, algo: sk.publicAlgo, seed: seed,
-                fingerprint: try PGPFingerprint.v4(publicBody: sk.publicBody),
-                kdfHash: sk.kdfHash ?? 8, kdfCipher: sk.kdfCipher ?? 9,
-                curveOIDBody: sk.curveOID ?? Data()
-            ))
-        }
+        let out = try DecryptChain.unlockSecretKeys(armored: armored, passphrase: passphrase, idPrefix: idPrefix)
+        for k in out { seeds[k.keyID] = k.seed }
         return out
     }
 

@@ -79,10 +79,10 @@ struct ShareMetadata: Decodable, Sendable {
 
 struct DriveShare: Decodable, Sendable {
     var shareID: String
-    var linkID: String
-    var volumeID: String
-    var type: Int
-    var state: Int
+    var linkID: String?
+    var volumeID: String?
+    var type: Int?
+    var state: Int?
     var addressID: String?
     var addressKeyID: String?
     var key: String?

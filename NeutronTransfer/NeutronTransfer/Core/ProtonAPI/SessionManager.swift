@@ -1,9 +1,18 @@
-// Neutron Transfer — session orchestrator.
+// Neutron Transfer — session orchestrator (memory only, like the official
+// Proton Drive app: no Keychain, no disk persistence; re-login each launch).
 // Flow: info -> hashPassword(v4, bcrypt) -> SRP proofs -> /auth/v4
-//       -> verify serverProof -> optional 2FA -> persist Keychain.
+//       -> verify serverProof -> optional 2FA.
 // 401 anywhere -> single /auth/v4/refresh retry (mirrors go-proton-api Client.doRes).
 import CryptoKit
 import Foundation
+
+/// In-memory session. Tokens never touch disk; unlocked key seeds never
+/// leave their owning actor either (see KeyringCache).
+struct ProtonSession: Codable, Sendable, Equatable {
+    var uid: String
+    var accessToken: String
+    var refreshToken: String
+}
 
 actor SessionManager {
     private var session: ProtonSession?
@@ -13,7 +22,6 @@ actor SessionManager {
     init(api: APIClient = APIClient(), bcrypt: any BcryptHasher = ProtonBcryptHasher()) {
         self.api = api
         self.bcrypt = bcrypt
-        if let saved = KeychainStore.load() { self.session = saved }
     }
 
     var isSignedIn: Bool { session != nil }
@@ -43,8 +51,9 @@ actor SessionManager {
         }
     }
 
-    /// Derives + persists the salted key password for `password` (rclone
-    /// SaltForKey semantics). Password-equivalent: memory + Keychain only.
+    /// Derives the salted key password for `password` (rclone SaltForKey
+    /// semantics). Password-equivalent: memory only, never persisted/logged.
+    /// Call right after login (key salts require password scope).
     func fetchSaltedKeyPass(password: Data, primaryKeyID: String) async throws -> Data {
         let salts = try await fetchSalts()
         guard let entry = salts.first(where: { $0.id == primaryKeyID }),
@@ -52,10 +61,7 @@ actor SessionManager {
               let saltBytes = Data(base64Encoded: saltB64) else {
             throw ProtonAPIError.srpParamsOutOfBounds("no key salt for \(primaryKeyID)")
         }
-        let salted = try MailboxPassword.salted(keyPass: password, keySalt: saltBytes, hasher: bcrypt)
-        session?.saltedKeyPass = salted.base64EncodedString()
-        if let session { try KeychainStore.save(session) }
-        return salted
+        return try MailboxPassword.salted(keyPass: password, keySalt: saltBytes, hasher: bcrypt)
     }
 
     /// Login with username + password. Throws needs2FA when TOTP required —
@@ -87,7 +93,6 @@ actor SessionManager {
         }
         let next = ProtonSession(uid: res.auth.uid, accessToken: res.auth.accessToken,
                                  refreshToken: res.auth.refreshToken)
-        try KeychainStore.save(next)
         session = next
         if res.auth.requires2FA { throw ProtonAPIError.needs2FA }
     }
@@ -99,7 +104,6 @@ actor SessionManager {
 
     func signOut() {
         session = nil
-        KeychainStore.delete()
     }
 
     /// Refresh tokens proactively (long syncs expire quickly — rclone #7381).
@@ -110,10 +114,8 @@ actor SessionManager {
         let body = AuthRefreshRequest(uid: s.uid, refreshToken: s.refreshToken,
                                       state: state.base64EncodedString(), accessToken: s.accessToken)
         let auth = try await api.authRefresh(body)
-        let next = ProtonSession(uid: auth.uid.isEmpty ? s.uid : auth.uid,
-                                 accessToken: auth.accessToken, refreshToken: auth.refreshToken)
-        try KeychainStore.save(next)
-        session = next
+        session = ProtonSession(uid: auth.uid.isEmpty ? s.uid : auth.uid,
+                                accessToken: auth.accessToken, refreshToken: auth.refreshToken)
     }
 }
 

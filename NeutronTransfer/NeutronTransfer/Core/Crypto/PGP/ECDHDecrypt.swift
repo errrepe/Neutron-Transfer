@@ -76,9 +76,11 @@ enum ECDHDecrypt {
         }
         let zb = try priv.sharedSecretFromKeyAgreement(with: eph).withUnsafeBytes { Data($0) }
 
-        // param = curveOID DER TLV || 18 || 03 || 01 || hashID || cipherID
-        //         || "Anonymous Sender    " || fingerprint  (RFC 6637 §8)
-        var param = Data([0x06, UInt8(curveOIDBody.count)])
+        // param = curve_OID_len || curve_OID || 18 || 03 || 01 || hashID
+        //         || cipherID || "Anonymous Sender    " || fingerprint
+        // (RFC 6637 §8; go-crypto OID.EncodedBytes = length octet + body,
+        // NO DER tag — verified against encoding/oid.go).
+        var param = Data([UInt8(curveOIDBody.count)])
         param.append(curveOIDBody)
         param.append(contentsOf: [18, 3, 1, kdfHash, kdfCipher])
         param.append(contentsOf: "Anonymous Sender    ".utf8)

@@ -14,7 +14,7 @@ enum ProtonAPIError: Error, Sendable, Equatable {
     case invalidBcryptSalt
     case keyVerificationFailed
     /// 2028 Too many recent logins (or generic rate limit): NEVER auto-retry
-    /// logins — surface immediately and back off. Reuse the Keychain session.
+    /// logins — surface immediately and back off. One spaced login per batch.
     case rateLimited
     case transport(Error)
 

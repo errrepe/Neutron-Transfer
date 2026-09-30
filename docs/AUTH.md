@@ -1,4 +1,4 @@
-# AUTH — SRP, 2FA, Session, Keychain
+# AUTH — SRP, 2FA, Session (memória, sem Keychain)
 
 > Endpoints oficiais apenas. Header obrigatório: `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha`.
 
@@ -28,9 +28,8 @@
       → salt da primary user key.
    b. `saltedKeyPass = bcrypt(keyPass, dotSlash(keySalt))[-31:]`
       (semântica rclone `SaltForKey`; NUNCA a senha crua — validado: pgpy
-      independente também rejeita a senha crua). Persiste em Keychain junto
-      à sessão (password-equivalent); seeds destravadas ficam SÓ em memória
-      (`KeyringCache` actor, `lock()` limpa).
+      independente também rejeita a senha crua). Só em memória (nunca disco);
+      seeds destravadas idem (`KeyringCache` actor, `lock()` limpa).
    c. `GET /core/v4/users` → user keys armored → parse pacotes → S2K iterado
       + AES-CFB puro a partir do IV (SEM prefixo random nessas chaves Proton:
       secretData é exatamente MPI + SHA-1 — verificado por hexdump) →
@@ -44,12 +43,12 @@
       `MessageDecrypt` (tenta cada seed candidata) e `unlockAddressKeys`
       (Token→passphrase→address key). Tudo em `Core/Crypto/PGP/`.
    e. Rate limit: logins repetidos retornam `2028 Too many recent logins`.
-      Nunca retry em loop no `/auth/v4`; backoff + reutilizar sessão Keychain.
+      Nunca retry em loop no `/auth/v4`; backoff + espaçar logins (cada
+      bateria de teste usa UM login).
 
-6. Persist:
-   Keychain: refreshToken, addressKeys, shareKeys (kSecClassGenericPassword,
-   accessGroup app, `kSecAccessibleAfterFirstUnlock`, biometric se disponível)
-   Memória (actor): accessToken + expiry.
+6. Sessão em memória:
+   `ProtonSession{uid,accessToken,refreshToken}` só no `SessionManager` actor.
+   Sem Keychain, sem disco — re-login a cada launch (como o app oficial).
 
 7. Refresh:
    POST /auth/v4/refresh { RefreshToken, UID }
@@ -57,7 +56,7 @@
    Agenda refresh em `expiresIn - 60s`.
 
 8. Logout / revoke:
-   POST /auth/v4/logout. Apaga Keychain + SwiftData session + memória.
+   POST /auth/v4/logout. Limpa sessão + seeds da memória.
 ```
 
 ## 2. SRP-6a detalhe
@@ -90,14 +89,13 @@
 - Erros comuns: `8002` (código inválido/expirado), `8101` (muitas tentativas → backoff).
 - Fora de escopo MVP: FIDO2 / hardware key enrollment. Mensagem clara se conta exigir.
 
-## 4. Keychain
+## 4. Sessão em memória (sem Keychain)
 
-- Serviço implementado: `dev.neutron.transfer.session`, conta `proton-session`
-  (`Core/Security/KeychainStore.swift`, JSON `ProtonSession{uid,accessToken,refreshToken}`).
-  (Doc original previa `com.neutron.transfer.session` + contas por chave — convergir em F3.)
-- Nunca em UserDefaults, SwiftData, plist, logs, crash reports.
-- Acesso: `kSecAccessibleAfterFirstUnlockThisDeviceOnly` por padrão.
-- Migração cripto 2026/2027: versionar entradas (`v1.` prefix) para re-unlock limpo.
+- Como o app oficial: sessão (`ProtonSession{uid,accessToken,refreshToken}`,
+  `SessionManager` actor) vive SÓ em memória e morre no logout/quit.
+  Re-login a cada launch; refresh single-flight mantém a sessão viva.
+- Nunca em Keychain, UserDefaults, SwiftData, plist, logs, crash reports.
+- Seeds destravadas idem: só em `KeyringCache` (memória), `lock()` limpa.
 
 ## 5. Erros comuns
 
@@ -127,6 +125,5 @@
 ## 8. Segurança
 
 - Zero telemetria de credenciais. Nenhum log com tokens/keys.
-- `AccessToken` só em memória (`SessionManager` actor).
-- `RefreshToken` só em Keychain.
+- `AccessToken` e `RefreshToken` só em memória (`SessionManager` actor).
 - Veja `SECURITY.md`.

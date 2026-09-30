@@ -3,7 +3,7 @@
 // only tag 18 carries the trailing MDC packet (0xD3 0x14 + 20-byte digest).
 import Foundation
 
-enum SEDError: Error, Sendable {
+enum SEDError: Error, Sendable, Equatable {
     case badPacket
     case mdcMissing
     case mdcMismatch
@@ -12,33 +12,49 @@ enum SEDError: Error, Sendable {
 }
 
 enum SEDDecrypt {
-    /// Decrypts one SED body with the session key. `expectMDC` is true for
-    /// tag-18 packets. Returns the inner packet bytes (literal/compressed).
+    /// Decrypts one SED body with the session key.
+    /// - `expectMDC` true for tag 18 (SEIPDv1): body starts with version
+    ///   octet 0x01 (RFC 9580; GnuPG 2.5 requires it — the live Token packet
+    ///   starts with 0x01), then CFB, then trailing MDC. False for tag 9
+    ///   (plain SED: CFB directly, no MDC).
+    /// - MDC input (go-crypto parity) is the FULL plaintext prefix (18 bytes,
+    ///   incl. check) + data + D3 14 — NOT data-after-prefix alone.
+    /// Returns the inner packet bytes (literal/compressed).
     static func decrypt(sedBody: Data, sessionKey: Data, symAlgoID: UInt8, expectMDC: Bool) throws -> Data {
         let keyLen = try PGPSymmetricAlgo.keyLength(id: symAlgoID)
         guard sessionKey.count == keyLen else { throw SEDError.badPacket }
-        let plain = try AESBlock.openPGPcfbDecrypt(ciphertext: sedBody, key: sessionKey)
-        guard plain.count >= 18 else { throw SEDError.badPacket }
-        var inner = plain.dropFirst(18)
+        var body = sedBody
         if expectMDC {
-            // MDC packet: 0xD3 0x14 + SHA1(prefix + D3 14).
-            guard inner.count >= 22,
-                  inner[inner.index(inner.endIndex, offsetBy: -22)] == 0xD3,
-                  inner[inner.index(inner.endIndex, offsetBy: -21)] == 0x14 else {
+            guard let first = body.first, first == 1 else { throw SEDError.badPacket }
+            body = body.dropFirst()
+        }
+        let plain = try AESBlock.openPGPcfbDecrypt(ciphertext: body, key: sessionKey, resync: !expectMDC)
+        guard plain.count >= 18 else { throw SEDError.badPacket }
+        if expectMDC {
+            // MDC packet: D3 14 + SHA1 hash. The hash covers everything before
+            // it — full plaintext prefix + data + the D3 14 header itself
+            // (go-crypto hashes the stream including the header, then compares
+            // the trailing 20 bytes). Do NOT append D3 14: it is already the
+            // last 2 bytes of the hashed region.
+            guard plain.count >= 18 + 22,
+                  plain[plain.index(plain.endIndex, offsetBy: -22)] == 0xD3,
+                  plain[plain.index(plain.endIndex, offsetBy: -21)] == 0x14 else {
                 throw SEDError.mdcMissing
             }
-            let prefix = inner.prefix(inner.count - 20)
-            var hashed = Data(prefix)
-            hashed.append(contentsOf: [0xD3, 0x14])
-            let digest = try PGPHash.digest(id: 2, hashed)
-            guard digest == inner.suffix(20) else { throw SEDError.mdcMismatch }
-            inner = prefix.prefix(prefix.count - 2)
+            let hashed = plain.prefix(plain.count - 20)
+            let digest = try PGPHash.digest(id: 2, Data(hashed))
+            guard digest == plain.suffix(20) else { throw SEDError.mdcMismatch }
+            return Data(plain[plain.startIndex + 18 ..< plain.index(plain.endIndex, offsetBy: -22)])
         }
-        return Data(inner)
+        return Data(plain.dropFirst(18))
     }
 
-    /// Extracts literal data (tag 11) from inner packets. Compressed packets
-    /// (tag 8) are reported for a follow-up (need live samples to pick codec).
+    /// Extracts literal data (tag 11) from inner packets.
+    /// Compressed packets (tag 8) are rejected: Proton passphrase/name
+    /// messages are uncompressed literals, and raw-DEFLATE needs a vendored
+    /// inflater (e.g. miniz) — Apple’s Compression framework only handles
+    /// zlib-wrapped streams. Verified: GnuPG-made ZIP messages fail loudly
+    /// here instead of corrupting silently.
     static func literalData(_ inner: Data) throws -> Data {
         let packets = try PGPPackets.parse(inner)
         for p in packets {

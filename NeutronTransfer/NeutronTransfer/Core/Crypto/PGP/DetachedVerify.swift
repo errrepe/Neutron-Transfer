@@ -48,11 +48,38 @@ struct DetachedSig: Sendable {
         let ulenHi = Int(try u8()), ulenLo = Int(try u8())
         _ = try take((ulenHi << 8) | ulenLo)
         let hashLeft = try take(2)
-        let (sigMPI, _) = try MPI.read(body, from: o - body.startIndex)
-        // Ed25519 sig MPI: 64 bytes R||S (left-pad if short — same convention
-        // as secret scalars; verified against live Token signatures in F3b-3).
-        var sig = Data(repeating: 0, count: max(0, 64 - sigMPI.count))
-        sig.append(contentsOf: sigMPI.suffix(64))
+        // Ed25519 signature encodings in the wild: GnuPG emits R and S as two
+        // MPIs; some stacks (go-crypto) store raw R||S (64 octets); older code
+        // used a single 64-byte MPI. Accept each iff it consumes the packet
+        // tail EXACTLY (no trailing garbage); left-pad short components.
+        let tailStart = o - body.startIndex
+        let tail = Data(body[o...])
+        var edSignature: Data? = nil
+        // 1) single MPI covering the whole tail (<= 64 bytes content).
+        if let (one, next) = try? MPI.read(body, from: tailStart), next - tailStart == tail.count, one.count <= 64 {
+            var s = Data(repeating: 0, count: 64 - one.count)
+            s.append(contentsOf: one)
+            edSignature = s
+        }
+        // 2) two MPIs (R, S), exact consumption.
+        if edSignature == nil,
+           let (r, n1) = try? MPI.read(body, from: tailStart),
+           let (s2, n2) = try? MPI.read(body, from: n1),
+           n2 - tailStart == tail.count {
+            var sig = Data(repeating: 0, count: max(0, 32 - r.count))
+            sig.append(contentsOf: r.suffix(32))
+            let pad = Data(repeating: 0, count: max(0, 32 - s2.count))
+            sig.append(contentsOf: pad)
+            sig.append(contentsOf: s2.suffix(32))
+            edSignature = sig
+        }
+        // 3) raw 64 octets (go-crypto emission).
+        if edSignature == nil, tail.count == 64 {
+            edSignature = tail
+        }
+        guard let edSig = edSignature, edSig.count == 64 else {
+            throw SigError.badPacket
+        }
 
         let hashedEnd = (4 + 2 + hashedLen) // ver,type,algo,hash + len16 + subpackets
         var trailer = Data(body[body.startIndex..<(body.startIndex + hashedEnd)])
@@ -65,7 +92,7 @@ struct DetachedSig: Sendable {
         trailer.append(UInt8(l & 0xFF))
         _ = hashLeft
         return DetachedSig(version: version, type: type, publicAlgo: algo,
-                           hashAlgo: hashAlgo, trailer: trailer, edSignature: sig,
+                           hashAlgo: hashAlgo, trailer: trailer, edSignature: edSig,
                            hashLeftExpected: Data(hashLeft))
     }
 

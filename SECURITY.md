@@ -8,13 +8,14 @@
 
 ## O que nunca fazer
 
-- Nunca commitar credenciais, tokens, `otp_secret`, chaves privadas, exports Keychain.
+- Nunca commitar credenciais, tokens, `otp_secret`, chaves privadas, dumps de sessão.
 - Nunca colar `AccessToken` / `RefreshToken` / `clientProof` / session keys em issues, logs, screenshots.
 - Nunca logar password, SRP secrets (`S`, `K`, `M1`), chaves desembrulhadas. Logs só com IDs e prefixos truncados.
 
 ## Como guardamos segredos
 
-- Keychain (`kSecClassGenericPassword`, `kSecAccessibleAfterFirstUnlockThisDeviceOnly`) para refresh tokens e keys. Nada em UserDefaults / SwiftData / plist.
+- Nenhum segredo em disco: sessão (tokens) e seeds destravadas vivem só em
+  memória e morrem no logout/quit. Nada em UserDefaults / SwiftData / plist.
 - `AccessToken` só em memória (`SessionManager` actor), refresh single-flight com expiração `expiresIn - 60s`.
 - Bookmark security-scoped para pastas de upload/download — sem paths absolutos sensíveis em logs.
 
@@ -26,5 +27,5 @@
 ## Superfície relevante
 
 - SRP-6a nativo, unlock User→Address→Share→Node→Session, AES-CFB + SHA256 + MDC por bloco.
-- Migração cripto quebrante fim 2026 / início 2027: entradas Keychain versionadas (`v1.`), `BlockFormatVersion` isolado para rotação limpa.
+- Migração cripto quebrante fim 2026 / início 2027: `BlockCrypto` isolado para rotação limpa (sem estado persistido para migrar — tudo em memória).
 - HV 9001: pausa fila, nunca bypass automatizado.

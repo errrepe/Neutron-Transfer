@@ -27,7 +27,7 @@ Neutron Transfer exists to close exactly that gap, nothing more for MVP.
 
 ## MVP Features
 
-- **Auth:** username + password with SRP-6a, TOTP 2FA support, session refresh, Keychain storage.
+- **Auth:** username + password with SRP-6a, TOTP 2FA support, session refresh, memory-only session (no Keychain, like the official app).
 - **Browse:** list vault / folders, navigate tree.
 - **Upload:**
   - Drag-and-drop files and folders onto the app.
@@ -47,7 +47,7 @@ Non-goals for MVP: full sync engine, search index, sharing links, multi-account,
 - Swift 6 (strict concurrency, `Sendable`, `actor` isolation where needed)
 - Swift Package Manager, no CocoaPods / Carthage
 - Crypto: native Swift implementation (SRP-6a, AES-CFB block crypto + SHA256 + MDC) — no binding to incubating SDK
-- Persistence: Keychain (secrets) + SwiftData (transfer queue)
+- Persistence: memory-only session (tokens + seeds never touch disk); SwiftData (transfer queue, no secrets)
 - Concurrency: Swift `TaskGroup` with limited parallelism
 
 ## Rules (non-negotiable)
@@ -61,7 +61,7 @@ Non-goals for MVP: full sync engine, search index, sharing links, multi-account,
 ## Docs
 
 - `docs/ARCHITECTURE.md` — layers, engines, concurrency
-- `docs/AUTH.md` — SRP flow, 2FA, refresh, Keychain, errors
+- `docs/AUTH.md` — SRP flow, 2FA, refresh, session, errors
 - `docs/TRANSFERS.md` — upload / download engines in detail
 - `docs/SDK-STRATEGY.md` — why native Swift instead of SDK binding
 - `docs/ROADMAP.md` — F0–F6 phases

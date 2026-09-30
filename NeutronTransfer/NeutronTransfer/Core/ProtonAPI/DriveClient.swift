@@ -31,8 +31,10 @@ actor DriveClient {
     }
 
     func getShare(_ shareID: String) async throws -> DriveShare {
+        // NOTE: go uses `struct { Share }` (embedded) so the response is FLAT
+        // (all fields top-level), unlike the nested list endpoints.
         try await authed { uid, token in
-            try await api.get(ShareResponse.self, path: "/drive/shares/\(shareID)", uid: uid, accessToken: token).share
+            try await api.get(DriveShare.self, path: "/drive/shares/\(shareID)", uid: uid, accessToken: token)
         }
     }
 

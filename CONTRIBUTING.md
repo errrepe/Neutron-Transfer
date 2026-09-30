@@ -35,7 +35,7 @@
 
 - **Desconsidere CI no GitHub.** Sem workflows, sem gates.
 - Não commitar sem pedido explícito. Não push sem pedido.
-- Nunca commitar segredos, tokens, Keychain exports, `.sqlite`, `DerivedData`, `.build`.
+- Nunca commitar segredos, tokens, dumps de sessão, `.sqlite`, `DerivedData`, `.build`.
 
 ## 6. Issues / PRs
 
@@ -53,5 +53,7 @@
   (TODO: fiar `NeutronTransferTests` no Test action). Enquanto isso, loop local:
   pacote SPM temporário com symlinks para `Sources/` + `Tests/` e `rtk swift test`.
 - Snippets Xcode (`RunCodeSnippet`) têm watchdog de ~5s no host de preview:
-  para fluxos longos (SRP ~20s debug) usar o probe CLI com `-O` ou reutilizar
-  a sessão do Keychain. Nunca commitar credenciais (só via env em memória).
+  para fluxos longos (SRP ~20s debug) usar o probe CLI com `-O`. Como não há
+  Keychain, cada verificação live exige login fresco — espaçar (rate-limit
+  2028) e agrupar tudo em UMA bateria por login. Nunca commitar credenciais
+  (só via env em memória).

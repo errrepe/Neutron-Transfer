@@ -28,7 +28,7 @@ Core/
   Crypto/   → SRP + KeyHierarchy + BlockCrypto (protocols isolados)
   Upload/   → UploadEngine
   Download/ → DownloadEngine
-  Store/    → TransferStore (SwiftData) + KeychainStore
+  Store/    → TransferStore (SwiftData, sem segredos)
 ```
 
 Regras:
@@ -48,7 +48,9 @@ Responsabilidades:
 - Corrige clock skew via NTP (comparar `Date` servidor vs local, tolerância configurável).
 - Expõe `actor SessionManager: Sendable` com `func validAccessToken() async throws -> String`.
 
-Segredos long-lived (refresh token, address keys, share keys) ficam em Keychain, nunca em SwiftData / UserDefaults / logs.
+Segredos (refresh token, saltedKeyPass, address/share/node seeds) ficam SÓ em
+memória (actors), nunca em disco / SwiftData / UserDefaults / logs. Sem Keychain
+(como o app oficial): re-login a cada launch.
 
 ## 4. DriveClient
 
@@ -108,12 +110,13 @@ Ver detalhe em `TRANSFERS.md`. Resumo:
 - Blocos em paralelo limitado, decrypt + verify, escrita atômica (`.part` → rename).
 - Resume via manifesto de blocos completos se retomado.
 
-## 8. TransferStore (SwiftData + Keychain)
+## 8. TransferStore (SwiftData, sem segredos)
 
 - `TransferJob`: id, type (upload/download), remotePath, localPath, state (queued/running/paused/failed/done), bytesTotal/bytesDone, errorCode, retryCount.
 - `TransferBlock`: jobID, index, hash, size, state — permite resume e verify.
 - Persistência imediata a cada transição de estado (crash-safe).
-- Secrets (tokens, keys) em `KeychainStore`, nunca em SwiftData.
+- Nenhum segredo persistido: tokens vivem no `SessionManager`, seeds no
+  `KeyringCache` (memória). Re-login repõe tudo.
 
 Modelo Swift 6: `@Model actor`-safe, `Sendable` DTOs para UI.
 

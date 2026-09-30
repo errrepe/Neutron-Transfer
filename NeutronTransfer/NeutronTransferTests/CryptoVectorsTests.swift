@@ -104,14 +104,14 @@ struct CryptoVectorsTests {
 
     @Test func ecdhInteropSynthetic() throws {
         // Synthetic PKESK built by Python (cryptography lib): X25519 agree +
-        // RFC 6637 KDF (SHA-256) + AES-KW. Fresh throwaway keys (see
-        // /tmp/nt-ecdh.py recipe); the test self-validates via checksum.
+        // RFC 6637 KDF (SHA-256, param WITHOUT DER tag) + AES-KW.
+        // Fresh throwaway keys; the test self-validates via checksum.
         let pkesk = try PKESK_ECDH.parse(body: HX(
-            "03000000000000000012010740f474476e193c23677f57d4e6f221bd855bae0964db6f5334961e3b0d915cfb2030dadc36e52cc6494938656c9913ec334292893c5be6ce19666b20cad4e8869a5f9576ab705ebfc3ebe79cc3c3ef311d7b"
+            "0300000000000000001201074090b19a727d8321f55034be124d28b091ecfa81c181f0adc44ccf8a368441965730f3a7867c45428d78ffa26d56cb6519f9a64e2e90f31d0df2df2464ef107a9cb528b6157947a78b51c8ecd2eb73e9ae03"
         ))
         let (cf, sess) = try ECDHDecrypt.decrypt(
             pkesk,
-            privateScalarLE: HX("e8d23e7e0d35f39ed28d558d11a0ead65af0b663cb69abd7fa31777a2ec5c75b"),
+            privateScalarLE: HX("785c6a52419fb084e2ad88e615f3f1be66ecadc3678a0b21d48fccdb58183e74"),
             curveOIDBody: HX("2b06010401da470f00"),
             fingerprint: HX("00112233445566778899aabbccddeeff00112233"),
             kdfHash: 8, kdfCipher: 9
@@ -152,5 +152,42 @@ struct CryptoVectorsTests {
         // Synthetic v4 EdDSA public body; reference: independent Python hashlib.
         let publicBody = HX("04" + "01020304" + "16" + "09" + "2b06010401da470f01" + "0107" + "40" + String(repeating: "ab", count: 32))
         #expect(HEX(try PGPFingerprint.v4(publicBody: publicBody)) == "d579b2eadb5b4eb52fd370a757604d5cd1a491c2")
+    }
+
+    @Test func gpgSkeskSeipdFlow() throws {
+        // GnuPG-made SKESK + SEIPDv1 (tag 18, version octet 0x01) with a ZIP-
+        // compressed payload ("hello-gpg-test", passphrase "test123" —
+        // throwaway fixtures). Decrypt + MDC verify must succeed; literal
+        // extraction must fail LOUDLY with unsupportedCompression (raw
+        // DEFLATE needs a vendored inflater; Proton messages are literals).
+        let raw = HX("8c0d0409030a70fb415ce0373da660d243018bdaab4b0a73bba3376ac661054c79fa82b5487a24ab57ae728fbc5962a4c494551a6ed576ea5c0afa0a43b9b2578196edc5839e1cd5c3f048d49f5b57e297176ba3")
+        let pkts = try PGPPackets.parse(raw)
+        let skesk = try #require(pkts.first(where: { $0.tag == 3 }).map(\.body))
+        let sed = try #require(pkts.first(where: { $0.tag == 18 }).map(\.body))
+        let cipher = skesk[skesk.index(skesk.startIndex, offsetBy: 1)]
+        let spec = Data(skesk[skesk.index(skesk.startIndex, offsetBy: 2)...])
+        let (sess, _) = try S2K.derive(spec: spec, passphrase: Data("test123".utf8), keyLength: Int(try PGPSymmetricAlgo.keyLength(id: cipher)))
+        let inner = try SEDDecrypt.decrypt(sedBody: sed, sessionKey: sess, symAlgoID: cipher, expectMDC: true)
+        do {
+            _ = try SEDDecrypt.literalData(inner)
+            Issue.record("expected unsupportedCompression")
+        } catch let e as SEDError {
+            #expect(e == .unsupportedCompression(1))
+        }
+    }
+
+    @Test func craftedSeipdRoundtrip() throws {
+        // Self-made SEIPDv1 (version octet + NoResync CFB + MDC over full
+        // prefix), independently verified by GnuPG decrypting it to
+        // "craft-test-ok". Passphrase "craftpw123" is a throwaway fixture.
+        let raw = HX("c30d0409030a62e7512e04b9743c60d23e017313c36bc99bf7a2e6c7a00f9993cf369289a0892653778cc0d1e156bcbe19f34e911699411d36bf98125e6065332b661a964bde8f8ab8f8bfbcd1951e")
+        let pkts = try PGPPackets.parse(raw)
+        let skesk = try #require(pkts.first(where: { $0.tag == 3 }).map(\.body))
+        let sed = try #require(pkts.first(where: { $0.tag == 18 }).map(\.body))
+        let cipher = skesk[skesk.index(skesk.startIndex, offsetBy: 1)]
+        let spec = Data(skesk[skesk.index(skesk.startIndex, offsetBy: 2)...])
+        let (sess, _) = try S2K.derive(spec: spec, passphrase: Data("craftpw123".utf8), keyLength: Int(try PGPSymmetricAlgo.keyLength(id: cipher)))
+        let inner = try SEDDecrypt.decrypt(sedBody: sed, sessionKey: sess, symAlgoID: cipher, expectMDC: true)
+        #expect(try SEDDecrypt.literalData(inner) == Data("craft-test-ok".utf8))
     }
 }
