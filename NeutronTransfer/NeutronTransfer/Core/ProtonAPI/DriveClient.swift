@@ -71,18 +71,6 @@ actor DriveClient {
     // MARK: - plumbing
 
     private func authed<T: Sendable>(_ op: @Sendable (String, String) async throws -> T) async throws -> T {
-        guard let creds = await sessions.credentials() else {
-            throw ProtonAPIError.unauthorized
-        }
-        do {
-            return try await op(creds.uid, creds.accessToken)
-        } catch let e as ProtonAPIError where e == .unauthorized {
-            // Single refresh + retry (long syncs expire quickly — rclone #7381).
-            try await sessions.refresh()
-            guard let retry = await sessions.credentials() else {
-                throw ProtonAPIError.unauthorized
-            }
-            return try await op(retry.uid, retry.accessToken)
-        }
+        try await sessions.withAuth(op)
     }
 }

@@ -23,13 +23,23 @@
    Suporta TOTP (6 dígitos). `otp_secret` para setup não é usado no MVP
    além de exibir instrução se conta exigir enrollment (fora de escopo).
 
-5. Unlock hierarchy:
-   GET /core/v4/users → User keys (encrypted)
-   GET /core/v4/addresses → Address keys
-   GET /drive/v4/shares → Share keys (vault)
-   GET /drive/v4/nodes/{id} → Node keys
-   GET session keys por arquivo (download/upload)
-   Descriptografa em cascata com passphrase derivada do SRP/password.
+5. Unlock hierarchy (F3b-1 implementado para user keys):
+   a. `GET /core/v4/keys/salts` (só com escopo de password, logo após login)
+      → salt da primary user key.
+   b. `saltedKeyPass = bcrypt(keyPass, dotSlash(keySalt))[-31:]`
+      (semântica rclone `SaltForKey`; NUNCA a senha crua — validado: pgpy
+      independente também rejeita a senha crua). Persiste em Keychain junto
+      à sessão (password-equivalent); seeds destravadas ficam SÓ em memória
+      (`KeyringCache` actor, `lock()` limpa).
+   c. `GET /core/v4/users` → user keys armored → parse pacotes → S2K iterado
+      + AES-CFB puro a partir do IV (SEM prefixo random nessas chaves Proton:
+      secretData é exatamente MPI + SHA-1 — verificado por hexdump) →
+      seed verificada contra a pública (Ed25519 direto; X25519 com bytes
+      reversos BE→LE). `GET /core/v4/addresses` → address keys (Token, F3b-2).
+   d. Pendente (F3b-2/3): Token→address, Passphrase→share, NodePassphrase→node,
+      decrypt de nomes (PKESK ECDH + SED) e detached-sig verify.
+   e. Rate limit: logins repetidos retornam `2028 Too many recent logins`.
+      Nunca retry em loop no `/auth/v4`; backoff + reutilizar sessão Keychain.
 
 6. Persist:
    Keychain: refreshToken, addressKeys, shareKeys (kSecClassGenericPassword,

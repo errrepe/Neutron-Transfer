@@ -12,6 +12,7 @@ enum ProtonAPIError: Error, Sendable, Equatable {
     case srpParamsOutOfBounds(String)
     case bcryptNotAvailable
     case invalidBcryptSalt
+    case keyVerificationFailed
     case transport(Error)
 
     static func == (lhs: ProtonAPIError, rhs: ProtonAPIError) -> Bool {
@@ -22,7 +23,8 @@ enum ProtonAPIError: Error, Sendable, Equatable {
              (.invalidServerProof, .invalidServerProof),
              (.invalidModulusSignature, .invalidModulusSignature),
              (.bcryptNotAvailable, .bcryptNotAvailable),
-             (.invalidBcryptSalt, .invalidBcryptSalt):
+             (.invalidBcryptSalt, .invalidBcryptSalt),
+             (.keyVerificationFailed, .keyVerificationFailed):
             return true
         case let (.api(c1, m1), .api(c2, m2)):
             return c1 == c2 && m1 == m2

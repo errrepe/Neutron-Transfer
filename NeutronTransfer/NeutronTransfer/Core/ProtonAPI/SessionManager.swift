@@ -22,6 +22,42 @@ actor SessionManager {
     /// Current tokens for authed API calls (nil when signed out).
     func credentials() -> ProtonSession? { session }
 
+    /// Runs `op` with (uid, accessToken), refreshing once on 401 and retrying
+    /// (mirrors go-proton-api Client.doRes).
+    func withAuth<T: Sendable>(_ op: @Sendable (String, String) async throws -> T) async throws -> T {
+        guard let creds = session else { throw ProtonAPIError.unauthorized }
+        do {
+            return try await op(creds.uid, creds.accessToken)
+        } catch let e as ProtonAPIError where e == .unauthorized {
+            try await refresh()
+            guard let retry = session else { throw ProtonAPIError.unauthorized }
+            return try await op(retry.uid, retry.accessToken)
+        }
+    }
+
+    /// Key salts for mailbox unlocking. Requires password-granted scope, i.e.
+    /// callable only shortly after a password login (server rejects otherwise).
+    func fetchSalts() async throws -> [KeySaltEntry] {
+        try await withAuth { uid, token in
+            try await self.api.get(KeySaltsResponse.self, path: "/core/v4/keys/salts", uid: uid, accessToken: token).keySalts
+        }
+    }
+
+    /// Derives + persists the salted key password for `password` (rclone
+    /// SaltForKey semantics). Password-equivalent: memory + Keychain only.
+    func fetchSaltedKeyPass(password: Data, primaryKeyID: String) async throws -> Data {
+        let salts = try await fetchSalts()
+        guard let entry = salts.first(where: { $0.id == primaryKeyID }),
+              let saltB64 = entry.keySalt,
+              let saltBytes = Data(base64Encoded: saltB64) else {
+            throw ProtonAPIError.srpParamsOutOfBounds("no key salt for \(primaryKeyID)")
+        }
+        let salted = try MailboxPassword.salted(keyPass: password, keySalt: saltBytes, hasher: bcrypt)
+        session?.saltedKeyPass = salted.base64EncodedString()
+        if let session { try KeychainStore.save(session) }
+        return salted
+    }
+
     /// Login with username + password. Throws needs2FA when TOTP required —
     /// caller must invoke submit2FA(code:) to complete.
     func login(username: String, password: Data) async throws {
