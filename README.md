@@ -8,9 +8,12 @@ Nativo macOS client for Proton Drive focused on what the official app does not a
 
 `0.1.0-alpha` — F0 docs+repo, F1 scaffold e F2 AuthCore concluídos (build verde).
 **Login SRP real verificado** contra conta de teste. **F3a DriveClient** (volumes/shares/
-links/children + browser read-only) implementado e verificado contra a API
-(`{"Volumes":[],"Code":1000}` — conta de teste ainda sem cofre; abrir drive.proton.me
-uma vez para provisionar). Nomes descriptografados são F3b. See `docs/ROADMAP.md`.
+links/children + browser read-only) implementado e verificado contra a API.
+**F3b-1 user-key unlock verificado live** (saltedKeyPass + seed bate com a pública).
+**F3b-2/3 (PKESK/SED/Ed25519/fingerprints) implementado e verificado offline**
+(vetores RFC + interop Python + pgpy); validação live pendente do cooldown do
+rate-limit de login. Cofre provisionado (usuário abriu drive.proton.me).
+See `docs/ROADMAP.md`.
 
 ## The Gap
 

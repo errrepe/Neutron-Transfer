@@ -1,0 +1,100 @@
+// Neutron Transfer — detached signature parse + Ed25519 verify (F3b-3).
+// v4 binary-doc signatures (type 0x00): digest = Hash(data || trailer),
+// trailer = body[0..<hashedEnd] + [version, 0xFF] + len32BE(hashedEnd).
+// Matches go-crypto signature.go signPrepareHash/buildHashSuffix.
+import CryptoKit
+import Foundation
+
+enum SigError: Error, Sendable {
+    case badPacket
+    case unsupportedAlgo(UInt8)
+    case hashMismatch // hash-left quick reject (or wrong hash algo)
+    case invalidSignature
+}
+
+struct DetachedSig: Sendable {
+    var version: UInt8
+    var type: UInt8
+    var publicAlgo: UInt8
+    var hashAlgo: UInt8
+    /// Trailer suffix for digest computation (hashed area + version/FF/len).
+    var trailer: Data
+    /// Ed25519 64-byte signature (R || S).
+    var edSignature: Data
+
+    static func parse(body: Data) throws -> DetachedSig {
+        var o = body.startIndex
+        func u8() throws -> UInt8 {
+            guard o < body.endIndex else { throw SigError.badPacket }
+            defer { o = body.index(after: o) }
+            return body[o]
+        }
+        func take(_ n: Int) throws -> Data {
+            guard let e = body.index(o, offsetBy: n, limitedBy: body.endIndex) else {
+                throw SigError.badPacket
+            }
+            defer { o = e }
+            return body[o..<e]
+        }
+        let version = try u8()
+        guard version == 4 else { throw SigError.badPacket }
+        let type = try u8()
+        let algo = try u8()
+        guard algo == 22 else { throw SigError.unsupportedAlgo(algo) }
+        let hashAlgo = try u8()
+        let hlenHi = Int(try u8()), hlenLo = Int(try u8())
+        let hashedLen = (hlenHi << 8) | hlenLo
+        _ = try take(hashedLen)
+        let ulenHi = Int(try u8()), ulenLo = Int(try u8())
+        _ = try take((ulenHi << 8) | ulenLo)
+        let hashLeft = try take(2)
+        let (sigMPI, _) = try MPI.read(body, from: o - body.startIndex)
+        // Ed25519 sig MPI: 64 bytes R||S (left-pad if short — same convention
+        // as secret scalars; verified against live Token signatures in F3b-3).
+        var sig = Data(repeating: 0, count: max(0, 64 - sigMPI.count))
+        sig.append(contentsOf: sigMPI.suffix(64))
+
+        let hashedEnd = (4 + 2 + hashedLen) // ver,type,algo,hash + len16 + subpackets
+        var trailer = Data(body[body.startIndex..<(body.startIndex + hashedEnd)])
+        trailer.append(version)
+        trailer.append(0xFF)
+        let l = UInt32(hashedEnd)
+        trailer.append(UInt8((l >> 24) & 0xFF))
+        trailer.append(UInt8((l >> 16) & 0xFF))
+        trailer.append(UInt8((l >> 8) & 0xFF))
+        trailer.append(UInt8(l & 0xFF))
+        _ = hashLeft
+        return DetachedSig(version: version, type: type, publicAlgo: algo,
+                           hashAlgo: hashAlgo, trailer: trailer, edSignature: sig,
+                           hashLeftExpected: Data(hashLeft))
+    }
+
+    private var hashLeftExpected: Data
+
+    init(version: UInt8, type: UInt8, publicAlgo: UInt8, hashAlgo: UInt8,
+         trailer: Data, edSignature: Data, hashLeftExpected: Data) {
+        self.version = version
+        self.type = type
+        self.publicAlgo = publicAlgo
+        self.hashAlgo = hashAlgo
+        self.trailer = trailer
+        self.edSignature = edSignature
+        self.hashLeftExpected = hashLeftExpected
+    }
+
+    /// Verifies over `data` with the signer's 32-byte Ed25519 public key
+    /// (0x40 prefix tolerated).
+    func verify(data: Data, signerPointMPI: Data) throws -> Bool {
+        var point = signerPointMPI
+        if point.count == 33, point.first == 0x40 { point = point.dropFirst() }
+        guard point.count == 32, edSignature.count == 64,
+              let pub = try? Curve25519.Signing.PublicKey(rawRepresentation: point) else {
+            return false
+        }
+        var input = data
+        input.append(trailer)
+        let digest = try PGPHash.digest(id: hashAlgo, input)
+        guard digest.prefix(2) == hashLeftExpected else { return false }
+        return pub.isValidSignature(edSignature, for: digest)
+    }
+}

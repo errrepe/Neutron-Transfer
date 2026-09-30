@@ -43,6 +43,37 @@ enum AESBlock {
         return Data(out)
     }
 
+    /// Raw AES-ECB single-block decrypt (for key unwrap).
+    static func decrypt(block: Data, key: Data) throws -> Data {
+        guard block.count == kCCBlockSizeAES128 else { throw AESError.badBlockLength }
+        switch key.count {
+        case kCCKeySizeAES128, kCCKeySizeAES192, kCCKeySizeAES256:
+            break
+        default:
+            throw AESError.badKeyLength
+        }
+        var out = [UInt8](repeating: 0, count: kCCBlockSizeAES128)
+        var outLen = 0
+        let status = key.withUnsafeBytes { kptr in
+            block.withUnsafeBytes { bptr in
+                CCCrypt(
+                    CCOperation(kCCDecrypt),
+                    CCAlgorithm(kCCAlgorithmAES),
+                    CCOptions(kCCOptionECBMode),
+                    kptr.baseAddress, key.count,
+                    nil,
+                    bptr.baseAddress, kCCBlockSizeAES128,
+                    &out, out.count,
+                    &outLen
+                )
+            }
+        }
+        guard status == kCCSuccess, outLen == kCCBlockSizeAES128 else {
+            throw AESError.cryptorFailed(status)
+        }
+        return Data(out)
+    }
+
     /// OpenPGP CFB decrypt with prefix resync (RFC 4880 §13.9):
     /// FR starts at `iv` (zeros when nil, as in SED packets); the first
     /// blockSize octets are random prefix, the next 2 are check octets

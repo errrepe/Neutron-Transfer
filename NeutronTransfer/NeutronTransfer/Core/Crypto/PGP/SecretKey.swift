@@ -32,6 +32,11 @@ struct SecretKeyPacket: Sendable {
     var curveOID: Data?
     /// Raw public point MPI bytes (for public-match verification after unlock).
     var publicPoint: Data?
+    /// Public packet body (version..end of public material) for v4 fingerprinting.
+    var publicBody: Data
+    /// KDF params for ECDH (algo 18): hash + cipher IDs from the packet.
+    var kdfHash: UInt8?
+    var kdfCipher: UInt8?
     var s2kUsage: UInt8
     var symmetricAlgo: UInt8?
     var s2kSpec: Data?
@@ -56,6 +61,8 @@ struct SecretKeyPacket: Sendable {
 
         var curveOID: Data? = nil
         var publicPoint: Data? = nil
+        var kdfHash: UInt8? = nil
+        var kdfCipher: UInt8? = nil
         switch algo {
         case 1: // RSA: n, e
             for _ in 0..<2 { let (_, n) = try MPI.read(body, from: o - body.startIndex); o = body.startIndex + n }
@@ -72,12 +79,17 @@ struct SecretKeyPacket: Sendable {
             if algo == 18 {
                 // ECDH KDF params: 1-octet length + (0x01, hashID, symID).
                 let kdfLen = Int(body[o]); o = body.index(after: o)
-                _ = try take(kdfLen)
+                let kdf = try take(kdfLen)
+                if kdf.count >= 3 {
+                    kdfHash = kdf[kdf.startIndex + 1]
+                    kdfCipher = kdf[kdf.startIndex + 2]
+                }
             }
         default:
             throw SecretKeyError.unsupportedAlgo(algo)
         }
 
+        let publicEnd = o // secret fields (s2kUsage..) begin here
         let s2kUsage = body[o]; o = body.index(after: o)
         var symmetricAlgo: UInt8? = nil
         var s2kSpec: Data? = nil
@@ -106,6 +118,8 @@ struct SecretKeyPacket: Sendable {
         }
         return SecretKeyPacket(
             version: version, publicAlgo: algo, curveOID: curveOID, publicPoint: publicPoint,
+            publicBody: Data(body[body.startIndex..<publicEnd]),
+            kdfHash: kdfHash, kdfCipher: kdfCipher,
             s2kUsage: s2kUsage, symmetricAlgo: symmetricAlgo, s2kSpec: s2kSpec, iv: iv,
             secretData: Data(body[o...])
         )

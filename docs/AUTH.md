@@ -36,8 +36,13 @@
       secretData é exatamente MPI + SHA-1 — verificado por hexdump) →
       seed verificada contra a pública (Ed25519 direto; X25519 com bytes
       reversos BE→LE). `GET /core/v4/addresses` → address keys (Token, F3b-2).
-   d. Pendente (F3b-2/3): Token→address, Passphrase→share, NodePassphrase→node,
-      decrypt de nomes (PKESK ECDH + SED) e detached-sig verify.
+   d. F3b-2/3 implementado e verificado OFFLINE (aguardando cooldown do
+      rate-limit 2028 para validação live): PKESK-ECDH decrypt (KDF RFC 6637 §8
+      + AES-KW RFC 3394 + checksum/padding — interop total contra PKESK
+      sintético gerado em Python), SED/SEIPDv1 decrypt + literal parse,
+      Ed25519 detached v4 verify (roundtrip), fingerprints v4 (iguais ao pgpy),
+      `MessageDecrypt` (tenta cada seed candidata) e `unlockAddressKeys`
+      (Token→passphrase→address key). Tudo em `Core/Crypto/PGP/`.
    e. Rate limit: logins repetidos retornam `2028 Too many recent logins`.
       Nunca retry em loop no `/auth/v4`; backoff + reutilizar sessão Keychain.
 

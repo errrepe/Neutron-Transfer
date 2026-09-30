@@ -8,6 +8,18 @@ actor KeyringCache {
         var keyID: String
         var algo: UInt8
         var seed: Data
+        /// v4 fingerprint of the secret packet's public part (KDF recipient ID).
+        var fingerprint: Data
+        var kdfHash: UInt8
+        var kdfCipher: UInt8
+        var curveOIDBody: Data
+
+        var candidate: DecryptCandidate? {
+            guard algo == 18, fingerprint.count == 20 else { return nil }
+            return DecryptCandidate(scalarLE: seed, fingerprint: fingerprint,
+                                    kdfHash: kdfHash, kdfCipher: kdfCipher,
+                                    curveOIDBody: curveOIDBody)
+        }
     }
 
     private let api: APIClient
@@ -32,24 +44,57 @@ actor KeyringCache {
         let user = try await fetchUser()
         var out: [UnlockedKey] = []
         for ref in user.keys where ref.isActive {
-            let raw = try Armor.decode(ref.privateKey)
-            for packet in try PGPPackets.parse(raw) where packet.tag == 5 || packet.tag == 7 {
-                let sk = try SecretKeyPacket.parse(body: packet.body)
-                let plain = try SecretKeyUnlock.decrypt(sk, passphrase: saltedPass)
-                let seed = sk.publicAlgo == 18
-                    ? try SecretKeyUnlock.ecdhScalar(plaintext: plain)
-                    : try SecretKeyUnlock.secretScalar(plaintext: plain)
-                let point = sk.publicPoint ?? Data()
-                let ok = sk.publicAlgo == 22
-                    ? SecretKeyVerify.ed25519PublicMatches(seed: seed, pointMPI: point)
-                    : SecretKeyVerify.x25519PublicMatches(scalar: seed, pointMPI: point)
-                guard ok else { throw ProtonAPIError.keyVerificationFailed }
-                let id = "\(ref.id)#\(sk.publicAlgo)"
-                seeds[id] = seed
-                out.append(UnlockedKey(keyID: id, algo: sk.publicAlgo, seed: seed))
+            out.append(contentsOf: try unlockSecretKeys(armored: ref.privateKey, passphrase: saltedPass, idPrefix: ref.id))
+        }
+        guard !out.isEmpty else { throw ProtonAPIError.keyVerificationFailed }
+        return out
+    }
+
+    /// Unlocks address keys: each address key's Token (passphrase encrypted to
+    /// a user ECDH subkey) is decrypted with the user candidates, then the
+    /// address secret key is unlocked with that passphrase (F3b-2).
+    @discardableResult
+    func unlockAddressKeys(userKeys: [UnlockedKey]) async throws -> [UnlockedKey] {
+        let addresses: [ProtonAddress] = try await sessions.withAuth { uid, token in
+            try await self.api.get(AddressesResponse.self, path: "/core/v4/addresses", uid: uid, accessToken: token).addresses
+        }
+        let candidates = userKeys.compactMap(\.candidate)
+        var out: [UnlockedKey] = []
+        for addr in addresses {
+            for ref in addr.keys where ref.isActive {
+                guard let tokenArmored = ref.token, !tokenArmored.isEmpty else { continue }
+                let passphrase = try MessageDecrypt.decrypt(armored: tokenArmored, candidates: candidates)
+                out.append(contentsOf: try unlockSecretKeys(armored: ref.privateKey, passphrase: Data(passphrase), idPrefix: "\(addr.id)/\(ref.id)"))
             }
         }
         guard !out.isEmpty else { throw ProtonAPIError.keyVerificationFailed }
+        return out
+    }
+
+    /// Parses + decrypts every secret packet in an armored key, verifying seeds.
+    func unlockSecretKeys(armored: String, passphrase: Data, idPrefix: String) throws -> [UnlockedKey] {
+        let raw = try Armor.decode(armored)
+        var out: [UnlockedKey] = []
+        for packet in try PGPPackets.parse(raw) where packet.tag == 5 || packet.tag == 7 {
+            let sk = try SecretKeyPacket.parse(body: packet.body)
+            let plain = try SecretKeyUnlock.decrypt(sk, passphrase: passphrase)
+            let seed = sk.publicAlgo == 18
+                ? try SecretKeyUnlock.ecdhScalar(plaintext: plain)
+                : try SecretKeyUnlock.secretScalar(plaintext: plain)
+            let point = sk.publicPoint ?? Data()
+            let ok = sk.publicAlgo == 22
+                ? SecretKeyVerify.ed25519PublicMatches(seed: seed, pointMPI: point)
+                : SecretKeyVerify.x25519PublicMatches(scalar: seed, pointMPI: point)
+            guard ok else { throw ProtonAPIError.keyVerificationFailed }
+            let id = "\(idPrefix)#\(sk.publicAlgo)"
+            seeds[id] = seed
+            out.append(UnlockedKey(
+                keyID: id, algo: sk.publicAlgo, seed: seed,
+                fingerprint: try PGPFingerprint.v4(publicBody: sk.publicBody),
+                kdfHash: sk.kdfHash ?? 8, kdfCipher: sk.kdfCipher ?? 9,
+                curveOIDBody: sk.curveOID ?? Data()
+            ))
+        }
         return out
     }
 
