@@ -1,6 +1,6 @@
 // Neutron Transfer — password hashing dispatch per go-srp/hash.go
-// Versions 1-4 require bcrypt ($2y$10$). macOS has no bcrypt in CryptoKit,
-// so hashing is gated behind BcryptHasher (F2b will add swift-bcrypt SPM).
+// Bcrypt core is vendored (Core/Crypto/BCrypt, MIT vapor-community/bcrypt).
+import CryptoKit
 import Foundation
 
 protocol BcryptHasher: Sendable {
@@ -30,16 +30,23 @@ enum PasswordHash {
             var salted = salt
             salted.append(contentsOf: "proton".utf8)
             let encoded = DotSlashBase64.encode(salted)
-            let crypted = try bcrypt.hash(password: password, dotSlashSalt: encoded)
+            let crypted = try bcrypt.hash(password: password, dotSlashSalt: "$2y$10$\(encoded)")
             return ExpandHash.expand(crypted + modulus)
         case 1, 2:
-            let cleaned = UsernameCleaner.clean(username)
-            // v1 uses md5(lower(username)) hex as salt; v2 cleans first then same as v1
-            let prehash = md5Hex(cleaned)
-            let crypted = try bcrypt.hash(password: password, dotSlashSalt: prehash)
+            let cleaned = version == 2 ? UsernameCleaner.clean(username) : username
+            // Legacy: md5(lower(username)) hex as salt. Go passes the 32-char hex
+            // where bcrypt consumes the first 22 chars; mirror that here.
+            let prehash = String(md5Hex(cleaned).prefix(22))
+            let crypted = try bcrypt.hash(password: password, dotSlashSalt: "$2y$10$\(prehash)")
             return ExpandHash.expand(crypted + modulus)
         case 0:
-            throw ProtonAPIError.bcryptNotAvailable
+            // Legacy: base64(sha512(lower(username) + password)) then v1 path.
+            var userAndPass = Array(username.lowercased().utf8) + Array(password)
+            defer { userAndPass = Array(repeating: 0, count: userAndPass.count) }
+            let prehashed = SHA512.hash(data: userAndPass)
+            let b64 = Data(prehashed).base64EncodedString()
+            return try hash(version: 1, password: Data(b64.utf8), username: username,
+                            salt: Data(), modulus: modulus, bcrypt: bcrypt)
         default:
             throw ProtonAPIError.srpParamsOutOfBounds("unsupported auth version \(version)")
         }

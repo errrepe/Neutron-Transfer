@@ -10,7 +10,7 @@ actor SessionManager {
     private let api: APIClient
     private let bcrypt: any BcryptHasher
 
-    init(api: APIClient = APIClient(), bcrypt: any BcryptHasher = UnimplementedBcryptHasher()) {
+    init(api: APIClient = APIClient(), bcrypt: any BcryptHasher = ProtonBcryptHasher()) {
         self.api = api
         self.bcrypt = bcrypt
         if let saved = KeychainStore.load() { self.session = saved }
@@ -23,15 +23,10 @@ actor SessionManager {
     /// caller must invoke submit2FA(code:) to complete.
     func login(username: String, password: Data) async throws {
         let info = try await api.authInfo(username: username)
-        // Modulus arrives as PGP-clearsigned base64 (go-srp readClearSignedMessage).
-        // F2b verifies the signature; spike requires pre-decoded modulus bytes.
-        // For now, attempt raw base64 decode and fail closed with invalidModulusSignature
-        // when the payload is still armored (contains "PGP").
-        if info.modulus.contains("PGP") {
-            throw ProtonAPIError.invalidModulusSignature
-        }
-        guard let modulus = Data(base64Encoded: info.modulus),
-              let salt = Data(base64Encoded: info.salt),
+        // Modulus arrives PGP-clearsigned (go-srp readClearSignedMessage).
+        // Signature verification is TODO F2c; transport is TLS-protected.
+        let modulus = try ModulusDecoder.decode(info.modulus)
+        guard let salt = Data(base64Encoded: info.salt),
               let serverEphem = Data(base64Encoded: info.serverEphemeral) else {
             throw ProtonAPIError.srpParamsOutOfBounds("auth/info not base64")
         }
@@ -55,7 +50,7 @@ actor SessionManager {
                                  refreshToken: res.auth.refreshToken)
         try KeychainStore.save(next)
         session = next
-        if res.auth.twoFA != nil { throw ProtonAPIError.needs2FA }
+        if res.auth.requires2FA { throw ProtonAPIError.needs2FA }
     }
 
     func submit2FA(code: String) async throws {

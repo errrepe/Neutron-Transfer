@@ -43,7 +43,9 @@ struct ProtonAuth: Decodable, Sendable {
     var accessToken: String
     var refreshToken: String
     var serverProof: String
-    /// Present when account requires second factor.
+    /// Session scope: "full" vs "2fa". 2FA is required when scope contains
+    /// "2fa" or TwoFA.Enabled != 0 (go-proton-api manager_auth_types.go).
+    var scope: String?
     var twoFA: TwoFAInfo?
 
     enum CodingKeys: String, CodingKey {
@@ -51,13 +53,21 @@ struct ProtonAuth: Decodable, Sendable {
         case accessToken = "AccessToken"
         case refreshToken = "RefreshToken"
         case serverProof = "ServerProof"
+        case scope = "Scope"
         case twoFA = "2FA"
+    }
+
+    /// True when the server gates this session behind a second factor.
+    var requires2FA: Bool {
+        if let scope, scope.lowercased().contains("2fa") { return true }
+        return (twoFA?.enabled ?? 0) != 0
     }
 }
 
 struct TwoFAInfo: Decodable, Sendable {
+    /// 0 = none, 1 = TOTP, 2 = FIDO2, 3 = both (go-proton-api TwoFAStatus).
     var enabled: Int?
-    var totp: Int?
+    enum CodingKeys: String, CodingKey { case enabled = "Enabled" }
 }
 
 struct Auth2FARequest: Encodable, Sendable {

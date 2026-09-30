@@ -6,9 +6,9 @@ Nativo macOS client for Proton Drive focused on what the official app does not a
 
 ## Status
 
-`0.1.0-alpha` — F0 docs+repo e F1 scaffold concluídos (build verde).
-F2 spike AuthCore implementado: SRP-6a math + SessionManager + Keychain wired;
-login real pendente de bcrypt (F2b). Upload/download engines são F3/F4. See `docs/ROADMAP.md`.
+`0.1.0-alpha` — F0 docs+repo, F1 scaffold e F2 AuthCore concluídos (build verde).
+**Login SRP real verificado** contra conta de teste (info → bcrypt → proofs → `/auth/v4` →
+serverProof OK → UID). Próximo: F3 listing do Drive. See `docs/ROADMAP.md`.
 
 ## The Gap
 

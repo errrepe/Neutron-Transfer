@@ -77,7 +77,7 @@ enum SRPClient {
             var candidate = BigUInt(dataLE: bytes)
             // clamp into range by retrying at most a few times (mirrors go-srp loop)
             var tries = 0
-            let lower = BigUInt(limbs: [UInt64(bitLength * 2)])
+            let lower = BigUInt(limbs: [UInt32(bitLength * 2)])
             while !(candidate.compare(lower) > 0 && candidate.compare(modMinusOne) < 0) && tries < 8 {
                 var b2 = Data(repeating: 0, count: byteLength)
                 _ = b2.withUnsafeMutableBytes {

@@ -44,7 +44,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text("AuthCore spike: SRP-6a math + session + Keychain wired. bcrypt (F2b) pending.")
+            Text("F2b: real SRP login verified against test account. Drive listing is next (F3).")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }

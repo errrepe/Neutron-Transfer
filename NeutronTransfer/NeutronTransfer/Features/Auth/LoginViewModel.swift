@@ -1,4 +1,4 @@
-// Neutron Transfer — auth UI state (spike: no real login yet, bcrypt pending F2b).
+// Neutron Transfer — auth UI state (F2b: real login via SessionManager).
 import Foundation
 
 @MainActor
@@ -30,7 +30,7 @@ final class LoginViewModel {
             password = ""
             state = .needs2FA
         } catch let e as ProtonAPIError where e == .bcryptNotAvailable {
-            state = .error("Spike: bcrypt pending (F2b). Session/Keychain/SRP math ready.")
+            state = .error("Crypto backend missing (bcrypt). Report this bug.")
         } catch {
             state = .error(error.localizedDescription)
         }

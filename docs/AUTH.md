@@ -48,18 +48,25 @@
 ## 2. SRP-6a detalhe
 
 - Implementação nativa Swift, sem binding incubating.
-- BigInt: `Core/Crypto/BigUInt.swift` minimalista vendored (limbs UInt64 LE, modMul/modPow O(n²),
-  formato wire little-endian igual a go-srp `toInt/fromInt`). Suficiente para 1 login; sem SPM.
+- BigInt: `Core/Crypto/BigUInt.swift` próprio, limbs de 32-bit (toda intermediação
+  cabe em `UInt64`, sem carry/borrow wrap). Wire little-endian igual a go-srp.
+  Verificado contra Python: mul exato, `pow(a,3,2^256-1)` exato, consistência `q·m+r==d`.
 - Hash: `expandHash = SHA512(d||0)||SHA512(d||1)||SHA512(d||2)||SHA512(d||3)` (256 bytes),
   `M1 = expand(A||B||S)`, `M2 = expand(A||M1||S)` verificado do servidor, gerador sempre 2, 2048-bit.
-- Password v3/v4: `bcrypt($2y$10$, dotSlashBase64(salt+"proton"))` + expand — bcrypt GATADO em
-  `BcryptHasher` (F2b adiciona swift-bcrypt SPM; spike lança `bcryptNotAvailable`).
-- Modulus PGP-clearsign: verificação GATADA (F2b via GopenPGP bridge); spike falha fechado com
-  `invalidModulusSignature` se o payload ainda vier armored.
+- Password v3/v4: `bcrypt($2y$10$, dotSlashBase64(salt+"proton"))` + expand. Bcrypt vendored
+  (`Core/Crypto/BCrypt/`, motor EksBlowfish próprio + tabelas Blowfish MIT de
+  vapor-community/bcrypt, ver `docs/VENDORED.md`). Semântica idêntica ao fork
+  ProtonMail/bcrypt (primeiros 22 chars do salt, eco no output). Validado contra
+  bcrypt de referência (Python): 3 vetores incluindo senha UTF-8.
+- Modulus PGP-clearsign: envelope parseado (`ModulusDecoder`); verificação da assinatura
+  GATADA para F2c (GopenPGP bridge). Transporte é TLS.
+- **Login real verificado em 2026-09-29** contra `neutrontransfertest@proton.me`:
+  info → hash → proofs → `/auth/v4` → serverProof OK → UID recebido. Credenciais
+  usadas só em memória, nunca commitadas.
+- Perf conhecido: ~6s por modPow 2048-bit em debug (≈20s por login). Release é
+  ~5-10x mais rápido. Otimizar (Montgomery/janela deslizante) só se virar gargalo real.
 - Nunca logar `password`, `S`, `K`, `M1`, salt raw. Logs só com prefixos truncados para debug local opt-in.
 - Vetores de referência: `go-proton-api` (SRP), `rclone` backend protondrive.
-- Spike F2 verificado (2026-09-29): expand=256B, `2^5 mod 13=6`, roundtrip LE, `md5("abc")=90015098…`,
-  header `x-pm-appversion` correto, build verde. Login real pendente de bcrypt (F2b).
 
 ## 3. 2FA
 
