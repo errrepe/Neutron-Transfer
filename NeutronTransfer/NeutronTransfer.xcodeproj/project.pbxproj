@@ -8,6 +8,7 @@
 
 /* Begin PBXFileReference section */
 		98CEDC3D306C8187004C9E45 /* NeutronTransfer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NeutronTransfer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		98CEDC9F306CB88A004C9E45 /* NeutronTransferTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NeutronTransferTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +17,20 @@
 			path = NeutronTransfer;
 			sourceTree = "<group>";
 		};
+		98CEDCA0306CB88A004C9E45 /* NeutronTransferTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = NeutronTransferTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		98CEDC3A306C8187004C9E45 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		98CEDC9C306CB88A004C9E45 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -31,6 +42,7 @@
 			isa = PBXGroup;
 			children = (
 				98CEDC3F306C8187004C9E45 /* NeutronTransfer */,
+				98CEDCA0306CB88A004C9E45 /* NeutronTransferTests */,
 				98CEDC3E306C8187004C9E45 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,6 +51,7 @@
 			isa = PBXGroup;
 			children = (
 				98CEDC3D306C8187004C9E45 /* NeutronTransfer.app */,
+				98CEDC9F306CB88A004C9E45 /* NeutronTransferTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,6 +77,24 @@
 			productReference = 98CEDC3D306C8187004C9E45 /* NeutronTransfer.app */;
 			productType = "com.apple.product-type.application";
 		};
+		98CEDC9E306CB88A004C9E45 /* NeutronTransferTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 98CEDCA3306CB88A004C9E45 /* Build configuration list for PBXNativeTarget "NeutronTransferTests" */;
+			buildPhases = (
+				98CEDC9B306CB88A004C9E45 /* Sources */,
+				98CEDC9C306CB88A004C9E45 /* Frameworks */,
+				98CEDC9D306CB88A004C9E45 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				98CEDCA0306CB88A004C9E45 /* NeutronTransferTests */,
+			);
+			name = NeutronTransferTests;
+			productName = NeutronTransferTests;
+			productReference = 98CEDC9F306CB88A004C9E45 /* NeutronTransferTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -75,6 +106,9 @@
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					98CEDC3C306C8187004C9E45 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					98CEDC9E306CB88A004C9E45 = {
 						CreatedOnToolsVersion = 27.0;
 					};
 				};
@@ -94,6 +128,7 @@
 			projectRoot = "";
 			targets = (
 				98CEDC3C306C8187004C9E45 /* NeutronTransfer */,
+				98CEDC9E306CB88A004C9E45 /* NeutronTransferTests */,
 			);
 		};
 /* End PBXProject section */
@@ -104,10 +139,20 @@
 			files = (
 			);
 		};
+		98CEDC9D306CB88A004C9E45 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		98CEDC39306C8187004C9E45 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		98CEDC9B306CB88A004C9E45 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
@@ -295,6 +340,52 @@
 			};
 			name = Release;
 		};
+		98CEDCA4306CB88A004C9E45 /* Debug configuration for PBXNativeTarget "NeutronTransferTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.NeutronTransferTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		98CEDCA5306CB88A004C9E45 /* Release configuration for PBXNativeTarget "NeutronTransferTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yourcompany.NeutronTransferTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -311,6 +402,14 @@
 			buildConfigurations = (
 				98CEDC49306C8188004C9E45 /* Debug configuration for PBXNativeTarget "NeutronTransfer" */,
 				98CEDC4A306C8188004C9E45 /* Release configuration for PBXNativeTarget "NeutronTransfer" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		98CEDCA3306CB88A004C9E45 /* Build configuration list for PBXNativeTarget "NeutronTransferTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				98CEDCA4306CB88A004C9E45 /* Debug configuration for PBXNativeTarget "NeutronTransferTests" */,
+				98CEDCA5306CB88A004C9E45 /* Release configuration for PBXNativeTarget "NeutronTransferTests" */,
 			);
 			defaultConfigurationName = Release;
 		};

@@ -13,6 +13,7 @@ links/children + browser read-only) implementado e verificado contra a API.
 **F3b-2/3 (PKESK/SED/Ed25519/fingerprints) implementado e verificado offline**
 (vetores RFC + interop Python + pgpy); validação live pendente do cooldown do
 rate-limit de login. Cofre provisionado (usuário abriu drive.proton.me).
+**Suite `NeutronTransferTests` (Swift Testing, 13 vetores offline) verde.**
 See `docs/ROADMAP.md`.
 
 ## The Gap

@@ -42,3 +42,16 @@
 - Abrir issue antes de PR grande. Referenciar fase do `docs/ROADMAP.md` (F1–F6).
 - PR pequeno, um tópico, com: o quê, por quê, como testado (build + teste via MCP), docs atualizados.
 - Todo PR que toca crypto/rede deve citar vetores ou conta teste usada (sem credenciais).
+
+## 7. Testes
+
+- Suite offline `NeutronTransferTests/CryptoVectorsTests.swift` (Swift Testing):
+  vetores RFC (AES-KW §4.1), inteiros vs Python, bcrypt vs implementação C de
+  referência, S2K/KDF/ECDH interop sintético, Ed25519 roundtrip, fingerprints.
+  Sem rede, sem segredos — seguro rodar sempre.
+- O target de testes ainda não está no scheme gerenciado pelo bridge MCP
+  (TODO: fiar `NeutronTransferTests` no Test action). Enquanto isso, loop local:
+  pacote SPM temporário com symlinks para `Sources/` + `Tests/` e `rtk swift test`.
+- Snippets Xcode (`RunCodeSnippet`) têm watchdog de ~5s no host de preview:
+  para fluxos longos (SRP ~20s debug) usar o probe CLI com `-O` ou reutilizar
+  a sessão do Keychain. Nunca commitar credenciais (só via env em memória).

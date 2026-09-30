@@ -79,6 +79,7 @@ struct APIClient: Sendable {
             switch env.code {
             case 9001: throw ProtonAPIError.humanVerificationRequired
             case 2011, 2021: throw ProtonAPIError.needs2FA
+            case 2028: throw ProtonAPIError.rateLimited
             default: throw ProtonAPIError.api(code: env.code, message: env.error ?? "unknown")
             }
         }
