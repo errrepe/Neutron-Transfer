@@ -18,6 +18,9 @@ final class LoginViewModel {
     var state: State = .signedOut
     private let sessions = SessionManager()
 
+    /// Shared session for Drive/transfer features (same actor instance).
+    var sessionManager: SessionManager { sessions }
+
     func signIn() async {
         state = .signingIn
         do {

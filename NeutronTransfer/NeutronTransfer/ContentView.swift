@@ -39,9 +39,7 @@ struct ContentView: View {
                 }
             case let .signedIn(uid):
                 Text("Signed in: \(uid)").font(.headline)
-                Text("F2 spike: session in Keychain. Upload/download engines are next (F3/F4).")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                DriveBrowserView(sessions: model.sessionManager)
             }
             Spacer()
             Text("F2b: real SRP login verified against test account. Drive listing is next (F3).")

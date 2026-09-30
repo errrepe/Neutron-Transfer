@@ -12,9 +12,16 @@ struct APIClient: Sendable {
         method: String = "POST",
         uid: String? = nil,
         accessToken: String? = nil,
+        query: [String: String]? = nil,
         body: (any Encodable & Sendable)? = nil
     ) throws -> URLRequest {
-        var req = URLRequest(url: baseURL.appendingPathComponent(path))
+        var url = baseURL.appendingPathComponent(path)
+        if let query, !query.isEmpty {
+            var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+            comps.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
+            url = comps.url!
+        }
+        var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(AppVersion.headerValue, forHTTPHeaderField: "x-pm-appversion")
@@ -45,6 +52,18 @@ struct APIClient: Sendable {
     func authRefresh(_ body: AuthRefreshRequest) async throws -> ProtonAuth {
         let req = try request("/auth/v4/refresh", body: body)
         return try await decode(AuthResponse.self, request: req).auth
+    }
+
+    /// Authenticated GET with query params (Drive API style).
+    func get<T: Decodable>(
+        _ type: T.Type,
+        path: String,
+        uid: String,
+        accessToken: String,
+        query: [String: String]? = nil
+    ) async throws -> T {
+        let req = try request(path, method: "GET", uid: uid, accessToken: accessToken, query: query)
+        return try await decode(T.self, request: req)
     }
 
     // MARK: - plumbing

@@ -19,6 +19,9 @@ actor SessionManager {
     var isSignedIn: Bool { session != nil }
     var uid: String? { session?.uid }
 
+    /// Current tokens for authed API calls (nil when signed out).
+    func credentials() -> ProtonSession? { session }
+
     /// Login with username + password. Throws needs2FA when TOTP required —
     /// caller must invoke submit2FA(code:) to complete.
     func login(username: String, password: Data) async throws {
