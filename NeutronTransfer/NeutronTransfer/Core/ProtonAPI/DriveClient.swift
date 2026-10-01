@@ -264,9 +264,57 @@ actor DriveClient {
         return (ids.linkID, ids.revisionID, prepared.node)
     }
 
+    // MARK: - file download (F5)
+
+    /// Lists a file's revisions (newest last in the capture; callers pick
+    /// the active revision id from the link's FileProperties instead).
+    func listRevisions(shareID: String, linkID: String) async throws -> [RevisionSummary] {
+        try await authed { uid, token in
+            try await api.get(
+                RevisionsResponse.self,
+                path: "/drive/shares/\(shareID)/files/\(linkID)/revisions",
+                uid: uid, accessToken: token
+            ).revisions
+        }
+    }
+
+    /// Fetches one revision with its block list (Index/Hash/Token/URL/
+    /// BareURL per block — the download session).
+    func getRevision(
+        shareID: String, linkID: String, revisionID: String
+    ) async throws -> RevisionDetail {
+        try await authed { uid, token in
+            try await api.get(
+                RevisionResponse.self,
+                path: "/drive/shares/\(shareID)/files/\(linkID)/revisions/\(revisionID)",
+                uid: uid, accessToken: token
+            ).revision
+        }
+    }
+
+    /// Downloads one raw encrypted block packet from its runtime storage
+    /// host (BareURL + Token header; falls back to the full URL when the
+    /// BareURL is empty). Returns the exact storage bytes (wire `Size`).
+    func downloadBlockBytes(block: RevisionBlock) async throws -> Data {
+        try await authed { uid, accessToken in
+            if !block.bareURL.isEmpty, !block.token.isEmpty {
+                return try await api.downloadRawBlock(
+                    bareURL: block.bareURL, token: block.token,
+                    uid: uid, accessToken: accessToken
+                )
+            }
+            guard !block.url.isEmpty else {
+                throw ProtonAPIError.transport(URLError(.badURL))
+            }
+            return try await api.downloadRawBlockURL(
+                url: block.url, token: block.token,
+                uid: uid, accessToken: accessToken
+            )
+        }
+    }
+
     /// Trashes children (state -> trashed). Per-item API codes surface as errors.
-    func trashChildren(shareID: String, parentLinkID: String, linkIDs: [String]) async throws {
-        let res: BatchChildrenResponse = try await authed { uid, token in
+    func trashChildren(shareID: String, parentLinkID: String, linkIDs: [String]) async throws {        let res: BatchChildrenResponse = try await authed { uid, token in
             try await api.post(
                 BatchChildrenResponse.self,
                 path: "/drive/shares/\(shareID)/folders/\(parentLinkID)/trash_multiple",

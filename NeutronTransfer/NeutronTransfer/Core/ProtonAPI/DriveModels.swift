@@ -506,6 +506,106 @@ struct CommitRevisionResponse: Decodable, Sendable {
     }
 }
 
+// MARK: - File revisions + blocks (F5 download)
+
+// GET /drive/shares/{shareID}/files/{linkID}/revisions
+// → { Revisions: [{ ID, ManifestSignature, Size, State, XAttr, … }] }.
+// GET .../revisions/{revisionID}
+// → { Revision: { ID, Blocks: [{ Index, Hash, Token, URL, BareURL,
+// EncSignature }], ManifestSignature, Size, State, XAttr, … } }.
+// Shapes captured live via rclone --dump bodies (/tmp/f5ref/): block Hash
+// is base64 SHA-256 of the ENCRYPTED storage bytes (77B for the 26B
+// fixture — NOT plaintext); Token is a short-lived JWT selecting the blob;
+// BareURL is the runtime storage host (never hardcoded); URL embeds the
+// same JWT in-path.
+struct RevisionBlock: Decodable, Sendable {
+    /// 1-based block index (wire `Index`).
+    var index: Int
+    /// base64 SHA-256 of the ENCRYPTED block bytes (verify before decrypt).
+    var hash: String
+    /// Short-lived storage JWT (Pm-Storage-Token header / URL path).
+    var token: String
+    /// Full block URL (token embedded in-path; may be empty — use BareURL).
+    var url: String
+    /// Runtime storage host (e.g. https://…-storage.proton.me/storage/blocks).
+    var bareURL: String
+    /// Armored EncSignature message (block-hash attestation; best-effort verify).
+    var encSignature: String?
+
+    enum CodingKeys: String, CodingKey {
+        case index = "Index"
+        case hash = "Hash"
+        case token = "Token"
+        case url = "URL"
+        case bareURL = "BareURL"
+        case encSignature = "EncSignature"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        index = try c.decode(Int.self, forKey: .index)
+        hash = try c.decode(String.self, forKey: .hash)
+        token = (try? c.decode(String.self, forKey: .token)) ?? ""
+        url = (try? c.decode(String.self, forKey: .url)) ?? ""
+        bareURL = (try? c.decode(String.self, forKey: .bareURL)) ?? ""
+        encSignature = try? c.decode(String.self, forKey: .encSignature)
+    }
+}
+
+struct RevisionDetail: Decodable, Sendable {
+    var id: String
+    var blocks: [RevisionBlock]
+    var manifestSignature: String?
+    var size: Int64?
+    var state: Int?
+    var xAttr: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id = "ID"
+        case blocks = "Blocks"
+        case manifestSignature = "ManifestSignature"
+        case size = "Size"
+        case state = "State"
+        case xAttr = "XAttr"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c.decode(String.self, forKey: .id)) ?? ""
+        blocks = (try? c.decode([RevisionBlock].self, forKey: .blocks)) ?? []
+        manifestSignature = try? c.decode(String.self, forKey: .manifestSignature)
+        size = try? c.decode(Int64.self, forKey: .size)
+        state = try? c.decode(Int.self, forKey: .state)
+        xAttr = try? c.decode(String.self, forKey: .xAttr)
+    }
+}
+
+struct RevisionSummary: Decodable, Sendable {
+    var id: String
+    var manifestSignature: String?
+    var size: Int64?
+    var state: Int?
+    var xAttr: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id = "ID"
+        case manifestSignature = "ManifestSignature"
+        case size = "Size"
+        case state = "State"
+        case xAttr = "XAttr"
+    }
+}
+
+struct RevisionsResponse: Decodable, Sendable {
+    var revisions: [RevisionSummary]
+    enum CodingKeys: String, CodingKey { case revisions = "Revisions" }
+}
+
+struct RevisionResponse: Decodable, Sendable {
+    var revision: RevisionDetail
+    enum CodingKeys: String, CodingKey { case revision = "Revision" }
+}
+
 // MARK: - Batch trash / delete (cleanup)
 
 // POST /drive/shares/{shareID}/folders/{parentLinkID}/{trash_multiple,delete_multiple}.

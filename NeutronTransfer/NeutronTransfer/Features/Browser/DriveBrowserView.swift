@@ -16,6 +16,9 @@ struct DriveBrowserView: View {
                 Button("Reload") { Task { await model.load() } }
             }
             Text(model.status).font(.caption).foregroundStyle(.secondary)
+            if !model.downloadStatus.isEmpty {
+                Text(model.downloadStatus).font(.caption).foregroundStyle(.secondary)
+            }
             if !model.volumes.isEmpty {
                 ForEach(model.volumes, id: \.volumeID) { v in
                     Text("Used \(bytes(v.usedSpace))" + (v.maxSpace.map { " of \(bytes($0))" } ?? "") + " · \(model.sections.count) shares")
@@ -37,6 +40,26 @@ struct DriveBrowserView: View {
                                         .help(row.name)
                                     Text("\(row.link.isFolder ? "Folder" : "File") · \(bytes(row.link.size)) · \(date(row.link.modifyTime))")
                                         .font(.caption).foregroundStyle(.secondary)
+                                    if let p = model.downloadProgress[row.link.linkID] {
+                                        ProgressView(value: p)
+                                            .frame(maxWidth: 220)
+                                    }
+                                }
+                                Spacer()
+                                if model.downloading.contains(row.link.linkID) {
+                                    ProgressView().scaleEffect(0.7)
+                                } else {
+                                    Button("Download") {
+                                        Task {
+                                            await model.pickAndDownload(
+                                                row: row, shareID: section.shareID
+                                            )
+                                        }
+                                    }
+                                    .font(.caption)
+                                    .help(row.link.isFolder
+                                        ? "Download folder recursively"
+                                        : "Download file")
                                 }
                             }
                         }

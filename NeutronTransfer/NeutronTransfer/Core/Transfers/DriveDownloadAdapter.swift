@@ -1,0 +1,307 @@
+// Neutron Transfer — live download adapter (F5).
+// Bridges the offline-tested FileDownload core to DriveClient + DecryptChain.
+// All key material stays in memory: addressKeys (init) + per-share/per-folder
+// caches in this actor (mirrors DriveUploadAdapter's session memo).
+//
+// Flow per file (rclone-captured /tmp/f5ref):
+//   getLink -> unlockNode (parent candidates + address signer points) ->
+//   openContentKey (node candidates) -> getRevision (activeRevision.ID,
+//   fallback: listRevisions last) -> download blocks in parallel (TaskGroup,
+//   max 4) -> FileDownload.reassemble (hash-verify + decrypt) ->
+//   atomicWrite to a conflict-free destination.
+// Folders download recursively (children listing + name decrypt), preserving
+// structure; files within one folder download with bounded parallelism.
+
+import Foundation
+
+/// Live file/folder download over DriveClient.
+actor DriveDownloadAdapter {
+    /// Unlocked keyring for one remote folder (root or descended child).
+    struct ResolvedKeys: Sendable {
+        var keys: [KeyringCache.UnlockedKey]
+        var linkID: String
+    }
+
+    private let drive: DriveClient
+    private let addressKeys: [KeyringCache.UnlockedKey]
+    private var shareKeys: [String: [KeyringCache.UnlockedKey]] = [:]
+    private var nodes: [String: ResolvedKeys] = [:]
+    private var roots: [String: String] = [:] // shareID → root linkID
+
+    /// Max parallel block fetches per file (TRANSFERS.md §1.5: bounded).
+    var maxConcurrentBlocks = 4
+    /// Max parallel file downloads per folder.
+    var maxConcurrentFiles = 4
+
+    init(drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey]) {
+        self.drive = drive
+        self.addressKeys = addressKeys
+    }
+
+    // MARK: - single file
+
+    /// Downloads one FILE link's bytes (no disk I/O here — caller writes).
+    /// Reports per-block completion (0...blocks.count) for progress UI.
+    func downloadFileBytes(
+        shareID: String,
+        link: DriveLink,
+        parentKeys: [KeyringCache.UnlockedKey],
+        progress: (@Sendable (Int, Int) async -> Void)? = nil
+    ) async throws -> Data {
+        let signers = DecryptChain.edPoints(addressKeys)
+        let nodeKeys = try DecryptChain.unlockNode(
+            link, parentCandidates: parentKeys.compactMap(\.candidate),
+            signerPoints: signers
+        )
+        guard let ckp = link.fileProperties?.contentKeyPacket, !ckp.isEmpty else {
+            throw FileDownloadError.missingContentKey
+        }
+        let (cipher, contentKey) = try FileUpload.openContentKey(
+            ckp, nodeCandidates: nodeKeys.compactMap(\.candidate)
+        )
+        guard cipher == FileUpload.sessionCipher || [7, 8, 9].contains(cipher) else {
+            throw FileDownloadError.missingContentKey
+        }
+        let revisionID = try await revisionID(shareID: shareID, link: link)
+        let revision = try await drive.getRevision(
+            shareID: shareID, linkID: link.linkID, revisionID: revisionID
+        )
+        guard !revision.blocks.isEmpty else {
+            return Data() // 0-byte file: no blocks (upload parity §1.4)
+        }
+        let ordered = revision.blocks.sorted { $0.index < $1.index }
+        var fetched = [FileDownload.FetchedBlock?](repeating: nil, count: ordered.count)
+        try await withThrowingTaskGroup(of: (Int, FileDownload.FetchedBlock).self) { group in
+            var next = 0
+            var inFlight = 0
+            func submit(_ i: Int) {
+                let block = ordered[i]
+                group.addTask {
+                    let bytes = try await self.drive.downloadBlockBytes(block: block)
+                    return (i, FileDownload.FetchedBlock(
+                        index: block.index, encrypted: bytes,
+                        expectedHashB64: block.hash
+                    ))
+                }
+            }
+            while next < ordered.count, inFlight < maxConcurrentBlocks {
+                submit(next); next += 1; inFlight += 1
+            }
+            var done = 0
+            while done < ordered.count {
+                let (i, fb) = try await group.next()!
+                fetched[i] = fb
+                done += 1
+                inFlight -= 1
+                if let progress { await progress(done, ordered.count) }
+                if next < ordered.count {
+                    submit(next); next += 1; inFlight += 1
+                }
+            }
+        }
+        return try FileDownload.reassemble(
+            blocks: fetched.compactMap { $0 }, contentKey: contentKey
+        )
+    }
+
+    // MARK: - single file to disk (with per-block progress)
+
+    /// Downloads one FILE link directly to `directory` (conflict-free name
+    /// via FileDownload.uniqueDestination + atomic write). Reports
+    /// (doneBlocks, totalBlocks) as blocks complete.
+    func downloadSingleFile(
+        shareID: String,
+        linkID: String,
+        directory: URL,
+        progress: (@Sendable (Int, Int) async -> Void)? = nil
+    ) async throws -> URL {
+        let link = try await drive.getLink(shareID: shareID, linkID: linkID)
+        guard !link.isFolder else {
+            throw FileDownloadError.missingRevision
+        }
+        let parentKeys = try await parentKeysFor(shareID: shareID, link: link)
+        let bytes = try await downloadFileBytes(
+            shareID: shareID, link: link, parentKeys: parentKeys,
+            progress: progress
+        )
+        let name = ((try? DecryptChain.decryptName(
+            link, parentCandidates: parentKeys.compactMap(\.candidate)
+        )) ?? link.linkID).precomposedStringWithCanonicalMapping
+        let dest = FileDownload.uniqueDestination(in: directory, name: name)
+        try FileDownload.atomicWrite(bytes, to: dest)
+        return dest
+    }
+
+    // MARK: - recursive folder
+
+    /// Downloads a remote FOLDER tree into `destination` (created if needed),
+    /// preserving structure. Returns downloaded file URLs.
+    /// `linkID` may be a file (single download) or folder (recursive).
+    func downloadTree(
+        shareID: String,
+        linkID: String,
+        destination: URL,
+        progress: (@Sendable (String, Int64, Int64) async -> Void)? = nil
+    ) async throws -> [URL] {
+        let rootKeys = try await keysForFolder(shareID: shareID, linkID: linkID)
+        let link = try await drive.getLink(shareID: shareID, linkID: linkID)
+        if !link.isFolder {
+            let parentKeys = try await parentKeysFor(shareID: shareID, link: link)
+            let bytes = try await downloadFileBytes(
+                shareID: shareID, link: link, parentKeys: parentKeys
+            )
+            let name = ((try? DecryptChain.decryptName(
+                link, parentCandidates: parentKeys.compactMap(\.candidate)
+            )) ?? link.linkID).precomposedStringWithCanonicalMapping
+            let dest = FileDownload.uniqueDestination(in: destination, name: name)
+            try FileDownload.atomicWrite(bytes, to: dest)
+            if let progress { await progress(name, Int64(bytes.count), Int64(bytes.count)) }
+            return [dest]
+        }
+        _ = rootKeys
+        return try await downloadFolder(
+            shareID: shareID, folderLinkID: linkID, localDir: destination,
+            progress: progress
+        )
+    }
+
+    private func downloadFolder(
+        shareID: String,
+        folderLinkID: String,
+        localDir: URL,
+        progress: (@Sendable (String, Int64, Int64) async -> Void)? = nil
+    ) async throws -> [URL] {
+        let folderKeys = try await keysForFolder(shareID: shareID, linkID: folderLinkID)
+        let candidates = folderKeys.keys.compactMap(\.candidate)
+        let children = try await drive.listChildren(shareID: shareID, linkID: folderLinkID)
+        try FileManager.default.createDirectory(
+            at: localDir, withIntermediateDirectories: true
+        )
+        // Decrypt names first (cheap, local), then subfolders recurse and
+        // files download with bounded parallelism.
+        struct NamedChild: Sendable {
+            var link: DriveLink
+            var name: String
+        }
+        let named = children.map { child in
+            NamedChild(
+                link: child,
+                name: ((try? DecryptChain.decryptName(
+                    child, parentCandidates: candidates
+                )) ?? child.linkID).precomposedStringWithCanonicalMapping
+            )
+        }
+        var out: [URL] = []
+        // Subfolders first (structure before bytes, TRANSFERS.md §2.2).
+        for child in named.filter({ $0.link.isFolder }) {
+            let subdir = localDir.appendingPathComponent(child.name, isDirectory: true)
+            let got = try await downloadFolder(
+                shareID: shareID, folderLinkID: child.link.linkID,
+                localDir: subdir, progress: progress
+            )
+            out.append(contentsOf: got)
+        }
+        let files = named.filter { !$0.link.isFolder }
+        try await withThrowingTaskGroup(of: [URL].self) { group in
+            var next = 0
+            var inFlight = 0
+            func submit(_ child: NamedChild) {
+                group.addTask {
+                    let bytes = try await self.downloadFileBytes(
+                        shareID: shareID, link: child.link,
+                        parentKeys: folderKeys.keys
+                    )
+                    let dest = FileDownload.uniqueDestination(
+                        in: localDir, name: child.name
+                    )
+                    try FileDownload.atomicWrite(bytes, to: dest)
+                    if let progress {
+                        await progress(child.name, Int64(bytes.count), Int64(bytes.count))
+                    }
+                    return [dest]
+                }
+            }
+            while next < files.count, inFlight < maxConcurrentFiles {
+                submit(files[next]); next += 1; inFlight += 1
+            }
+            while next < files.count || inFlight > 0 {
+                if let got = try await group.next() {
+                    out.append(contentsOf: got)
+                    inFlight -= 1
+                }
+                while next < files.count, inFlight < maxConcurrentFiles {
+                    submit(files[next]); next += 1; inFlight += 1
+                }
+            }
+        }
+        return out
+    }
+
+    // MARK: - key resolution (memory only; mirrors DriveUploadAdapter)
+
+    private func revisionID(shareID: String, link: DriveLink) async throws -> String {
+        if let id = link.fileProperties?.activeRevision?.id, !id.isEmpty {
+            return id
+        }
+        let revs = try await drive.listRevisions(shareID: shareID, linkID: link.linkID)
+        guard let last = revs.last else { throw FileDownloadError.missingRevision }
+        return last.id
+    }
+
+    private func parentKeysFor(
+        shareID: String, link: DriveLink
+    ) async throws -> [KeyringCache.UnlockedKey] {
+        if let parent = link.parentLinkID, let node = nodes[parent] {
+            return node.keys
+        }
+        if let parent = link.parentLinkID {
+            return try await keysForFolder(shareID: shareID, linkID: parent).keys
+        }
+        return try await shareKeyring(shareID: shareID)
+    }
+
+    private func keysForFolder(
+        shareID: String, linkID: String
+    ) async throws -> ResolvedKeys {
+        if let node = nodes[linkID] { return node }
+        if let rootID = roots[shareID], rootID == linkID,
+           let keys = try? await shareKeyring(shareID: shareID)
+        {
+            // Root folder unlocks with the share keyring.
+            let root = try await drive.getLink(shareID: shareID, linkID: linkID)
+            let signers = DecryptChain.edPoints(addressKeys)
+            let rootKeys = try DecryptChain.unlockNode(
+                root, parentCandidates: keys.compactMap(\.candidate),
+                signerPoints: signers
+            )
+            let resolved = ResolvedKeys(keys: rootKeys, linkID: linkID)
+            nodes[linkID] = resolved
+            return resolved
+        }
+        // Descend: parent first, then unlock this node with it.
+        let link = try await drive.getLink(shareID: shareID, linkID: linkID)
+        let parentKeys: [KeyringCache.UnlockedKey]
+        if let parent = link.parentLinkID {
+            parentKeys = try await keysForFolder(shareID: shareID, linkID: parent).keys
+        } else {
+            parentKeys = try await shareKeyring(shareID: shareID)
+        }
+        let signers = DecryptChain.edPoints(addressKeys)
+        let keys = try DecryptChain.unlockNode(
+            link, parentCandidates: parentKeys.compactMap(\.candidate),
+            signerPoints: signers
+        )
+        let resolved = ResolvedKeys(keys: keys, linkID: linkID)
+        nodes[linkID] = resolved
+        return resolved
+    }
+
+    private func shareKeyring(shareID: String) async throws -> [KeyringCache.UnlockedKey] {
+        if let keys = shareKeys[shareID] { return keys }
+        let share = try await drive.getShare(shareID)
+        let keys = try DecryptChain.unlockShare(share, addressKeys: addressKeys)
+        shareKeys[shareID] = keys
+        if let rootID = share.linkID { roots[shareID] = rootID }
+        return keys
+    }
+}

@@ -180,3 +180,57 @@ DerivedData externo).
   progresso/estado/pausar/retomar/cancelar/relaçar/remover + "Retry all failed".
 - Retry F4.4 recomeça o ARQUIVO inteiro (sem resume de manifesto parcial —
   difere do aspirado em §1.4; resume de blocos é follow-up).
+
+## 8. F5 — download de arquivos/pastas (implementado 2026-10-01, offline + rclone-capturado)
+
+Arquivos: `Core/Transfers/FileDownload.swift` (núcleo puro: verify hash +
+reassemble + destino + escrita atômica), `Core/Transfers/DriveDownloadAdapter.swift`
+(ponte live: keyrings em memória, blocos paralelos, recursivo),
+`Core/ProtonAPI/DriveClient.swift` (`listRevisions`/`getRevision`/`downloadBlockBytes`),
+`Core/ProtonAPI/APIClient.swift` (`downloadRawBlock{,URL}` — octet-stream, sem envelope),
+`Core/ProtonAPI/DriveModels.swift` (`RevisionBlock/Detail/Summary`),
+`Core/ProtonAPI/AppVersion.swift` (`storageHeaderValue`),
+`Features/Browser/DriveBrowserView{,Model}.swift` (botão Download por linha + progresso),
+`NeutronTransferTests/FileDownloadTests.swift` (9 testes; suite 68/68 via
+`/tmp/nt-tests` + `swift test` — 59 anteriores intactos; build Xcode verde,
+scheme `NeutronTransfer`, DerivedData externo).
+
+- Descoberta (0 logins SRP frescos — token em cache de 23:55 reutilizado):
+  `rclone --config /tmp/rclone-nt.conf cat "nt:NT-F43-FIXTURE.txt" --dump bodies`
+  (`/tmp/f5ref/rclone-download.log` + redacted). Fluxo: `GET .../links/{fileID}`
+  → `FileProperties.ContentKeyPacket` (b64 sem armor) + `ActiveRevision.ID` →
+  `GET .../files/{id}/revisions` → `GET .../revisions/{revID}` →
+  `Revision.Blocks[]={Index, Hash (b64 SHA-256 dos bytes CIFRADOS), Token (JWT
+  curto), URL (token em-path), BareURL (host storage runtime), EncSignature}` →
+  `GET {BareURL}` no host storage (`Pm-Storage-Token: Token`, Bearer + X-Pm-Uid,
+  `x-pm-appversion: external-drive-rclone@1.75.1-stable`) → octet-stream do
+  pacote SED tag-18 (77B p/ fixture 26B). Hash PROVADO = sha256(storage bytes),
+  não plaintext (fixture Hash f854… ≠ sha256(plaintext) 0532…) — corrige o
+  aspirado em §1.4/§2.3 que dizia "SHA-256 por bloco" ambíguo/claro.
+- Download por arquivo: `unlockNode` (parent + address signers) →
+  `FileUpload.openContentKey` (node candidates; cipher 7/8/9 aceito) →
+  revision (activeRevision.ID, fallback última de `listRevisions`) → blocos em
+  paralelo limitado (default 4, TaskGroup com janela deslizante) →
+  `FileDownload.reassemble` (ordena por Index, checa contiguidade 1-based,
+  verifica SHA-256 de CADA bloco antes de decriptar — fail-closed
+  `hashMismatch`, `decryptBlock` SED/SEIPDv1 existente) → bytes idênticos.
+  Arquivo 0 bytes: sem blocos, retorna `Data()` (paridade upload §1.4).
+- Recursivo: `downloadTree` (arquivo → download direto; pasta →
+  `listChildren` + `decryptName` com candidates da pasta, cria dirs locais
+  primeiro, subpastas antes dos bytes, arquivos da pasta com paralelismo
+  limitado default 4). Destino = pasta via `NSOpenPanel` (só diretórios,
+  pode criar; `startAccessingSecurityScopedResource` best-effort na sessão,
+  sem bookmark persistente — fila de downloads persistente é F6).
+  Sobrescrita: `uniqueDestination` (`nome`, `nome (1).ext`, … — paridade
+  upload) + escrita atômica `*.neutron-part` → rename (§2.2).
+- Decisão de escopo: downloader DEDICADO com progresso próprio (não extensão
+  do `TransferQueue` — `TransferJob` é upload-específico: localPath/parentLinkID/
+  uploader; adaptar para download balloonaria o ator + persistência; F6 unifica).
+- UI (browser): botão "Download" por linha (arquivo e pasta) + `NSOpenPanel`
+  destino; progresso por blocos no arquivo (`0/total` + barra) e status por
+  arquivo na pasta; estado `downloading`/`downloadProgress`/`downloadStatus`
+  no view-model (sem fila persistente em F5).
+- Testes offline (9, sem rede): roundtrip single/multi-bloco (incl. ordem
+  reversa), vazio, `hashMismatch` fail-closed + base64 ruim, gap de índice,
+  chave errada rejeitada, sufixo ` (1)` ext-aware, escrita atômica, regra
+  26B→77B + `Hash == sha256(ciphertext)` (paridade fixture live).
