@@ -105,12 +105,20 @@ final class TransferQueueViewModel {
         defer { isAdding = false }
         var totalFiles = 0
         for url in urls {
+            // Scoped access must be held on the MainActor before the worker
+            // reads; the queue persists bookmarks for later reads, so the
+            // grant is intentionally held for the session (see audit note).
             _ = url.startAccessingSecurityScopedResource() // held for the session
             do {
                 let entries: [LocalTreeScan.Entry]
                 var isDir: ObjCBool = false
                 if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
-                    entries = try LocalTreeScan.collect(root: url).entries
+                    // Directory scan is synchronous disk I/O: keep it off the
+                    // MainActor so large trees don't freeze the UI (spinner
+                    // stays alive via isAdding).
+                    entries = try await Task.detached(priority: .userInitiated) {
+                        try LocalTreeScan.collect(root: url).entries
+                    }.value
                 } else {
                     entries = [LocalTreeScan.Entry(
                         url: url,
@@ -149,14 +157,33 @@ final class TransferQueueViewModel {
     }
 
     func addPanel() async {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = true
-        panel.canCreateDirectories = false
-        panel.prompt = "Add to upload queue"
-        guard panel.runModal() == .OK else { return }
-        await add(urls: panel.urls)
+        guard let urls = await presentIntakePanel(), !urls.isEmpty else { return }
+        await add(urls: urls)
+    }
+
+    /// Non-blocking intake picker: sheet on the key window, app-modal
+    /// fallback when there is no key window. Never spins a nested runModal
+    /// loop, so the MainActor stays free while the panel is up. Nil/empty =
+    /// cancelled/dismissed (caller no-ops, status untouched).
+    private func presentIntakePanel() async -> [URL]? {
+        await withCheckedContinuation { cont in
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = true
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = true
+            panel.canCreateDirectories = false
+            panel.prompt = "Add to upload queue"
+            let completion: (NSApplication.ModalResponse) -> Void = { response in
+                cont.resume(returning: PanelIntake.uploadURLs(
+                    responseOK: response == .OK, urls: panel.urls
+                ))
+            }
+            if let window = NSApp.keyWindow {
+                panel.beginSheetModal(for: window, completionHandler: completion)
+            } else {
+                panel.begin(completionHandler: completion)
+            }
+        }
     }
 
     // MARK: operators (thin pass-through + snapshot refresh)

@@ -111,15 +111,39 @@ final class DriveBrowserViewModel {
     /// before decrypt; writes are atomic (.neutron-part → rename);
     /// name conflicts get ` (1)` suffixes (FileDownload).
     func pickAndDownload(row: Row, shareID: String) async {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Choose download destination"
-        guard panel.runModal() == .OK, let dest = panel.url else { return }
-        _ = dest.startAccessingSecurityScopedResource() // held for the session
+        guard let dest = await presentDestinationPanel() else {
+            // User dismissed the panel: report, never proceed, never block.
+            downloadStatus = PanelIntake.downloadCancelledStatus(rowName: row.name)
+            return
+        }
+        let scoped = dest.startAccessingSecurityScopedResource()
         await download(row: row, shareID: shareID, destination: dest)
+        if scoped { dest.stopAccessingSecurityScopedResource() }
+    }
+
+    /// Non-blocking destination picker: sheet on the key window, app-modal
+    /// fallback when there is no key window (e.g. app inactive). Never spins
+    /// a nested runModal loop, so the MainActor stays free while the panel
+    /// is up. Resolves via PanelIntake (nil = cancelled/dismissed).
+    private func presentDestinationPanel() async -> URL? {
+        await withCheckedContinuation { cont in
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.canCreateDirectories = true
+            panel.allowsMultipleSelection = false
+            panel.prompt = "Choose download destination"
+            let completion: (NSApplication.ModalResponse) -> Void = { response in
+                cont.resume(returning: PanelIntake.downloadDestination(
+                    responseOK: response == .OK, url: panel.url
+                ))
+            }
+            if let window = NSApp.keyWindow {
+                panel.beginSheetModal(for: window, completionHandler: completion)
+            } else {
+                panel.begin(completionHandler: completion)
+            }
+        }
     }
 
     func download(row: Row, shareID: String, destination: URL) async {

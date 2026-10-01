@@ -40,7 +40,13 @@ struct ContentView: View {
                     Task { await model.submit2FA() }
                 }
             case let .signedIn(uid):
-                Text("Signed in: \(uid)").font(.headline)
+                // Compact windows (e.g. 559x450) center the TabView pills over
+                // this header: keep clearance so "Signed in" never slides
+                // under Browse/Transfers.
+                Text("Signed in: \(uid)")
+                    .font(.headline)
+                    .padding(.top, 28)
+                    .frame(minHeight: 30)
                 TabView {
                     DriveBrowserView(sessions: model.sessionManager, addressKeys: model.addressKeys, activity: activity)
                         .tabItem { Label("Browse", systemImage: "folder") }

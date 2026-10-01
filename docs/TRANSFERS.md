@@ -332,3 +332,38 @@ Alterados: `DriveModels.ShareMetadata` (Bool tolerante),
   (symlinks incluem `UserFacingError`, `DownloadRecord`, `F6HardeningTests`;
    93/93 esperado) + build Xcode MCP scheme `NeutronTransfer`
   (DerivedData `/Volumes/SSD 4TB/DEV/DerivedData`, sem builds concorrentes).
+
+## 10. F6-fix — `runModal` travava a main thread (corrigido 2026-10-01, offline)
+
+Bug real confirmado via `sample` (`/tmp/nt-sample.txt`): main thread presa em
+`DriveBrowserViewModel.pickAndDownload` (`DriveBrowserViewModel.swift:120`) →
+`[NSSavePanel runModal]` → modal loop eterno. Quando o app não está ativo/key
+(ou o painel não pode apresentar), `runModal()` nunca retorna: UI inteira
+morre (abas, Reload, botões), só AX/screenshots respondem.
+
+- Fix: `pickAndDownload` (`Features/Browser/DriveBrowserViewModel.swift`) e
+  `addPanel` (`Features/Transfers/TransferQueueViewModel.swift`) agora
+  apresentam o `NSOpenPanel` de forma assíncrona — sheet via
+  `beginSheetModal(for:)` na janela key, fallback `begin` app-modal quando não
+  há janela key — e continuam no completion via `withCheckedContinuation`
+  (suspensão, nunca bloqueio do MainActor). Cancel/dismiss apenas resolve nil:
+  download seta `downloadStatus = "Download cancelled (<nome>)"`; upload é
+  no-op (status intocado). Nenhum `runModal` restante no produto (grep prova).
+- Decisão extraída para núcleo puro AppKit-free
+  (`Core/Transfers/PanelIntake.swift`: `downloadDestination(responseOK:url:)`,
+  `uploadURLs(responseOK:urls:)`, `downloadCancelledStatus(rowName:)`), coberta
+  por `NeutronTransferTests/PanelIntakeTests.swift` (7 testes Swift Testing;
+  suite 100/100 via `/tmp/nt-tests` — 93 anteriores intactos; build Xcode
+  verde, scheme `NeutronTransfer`, DerivedData externo).
+- Auditoria MainActor nos paths de UI: `panel.url` após cancel agora guarda
+  `response == .OK` primeiro (valor stale ignorado); download segura
+  `startAccessingSecurityScopedResource` só durante o `download` e dá `stop`
+  ao fim; intake de upload mantém o grant da sessão de propósito (a fila lê os
+  arquivos depois via bookmarks — parar cedo revogaria o acesso); scan de
+  diretórios em `add(urls:)` saiu do MainActor (`Task.detached`, spinner via
+  `isAdding`); login segue sem deadline global (cada request tem o timeout
+  padrão da URLSession; UI continua responsiva em `signingIn` com botão
+  desabilitado — deadline global é follow-up, não hang).
+- Wart visual menor (screenshots 559×450): pills Browse/Transfers sobrepunham
+  o "Signed in" — `ContentView` ganhou `padding(.top, 28)` + `minHeight: 30`
+  no header para dar clearance em janelas compactas.
