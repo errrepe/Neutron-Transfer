@@ -161,6 +161,31 @@ enum AESBlock {
         }
         return Data(out)
     }
+
+    /// Plain CFB encrypt (NO prefix/resync): FR starts at `iv`, standard CFB.
+    /// Exact inverse of cfbDecrypt (used to lock generated secret keys).
+    static func cfbEncrypt(plaintext: Data, key: Data, iv: Data, blockSize: Int = 16) throws -> Data {
+        guard iv.count == blockSize else { throw AESError.badBlockLength }
+        let p = Array(plaintext)
+        var fr = Array(iv)
+        var out: [UInt8] = []
+        out.reserveCapacity(p.count)
+        var pos = 0
+        while pos < p.count {
+            let fre = try Array(encrypt(block: Data(fr), key: key))
+            let end = min(pos + blockSize, p.count)
+            for i in pos..<end {
+                out.append(p[i] ^ fre[i - pos])
+            }
+            if end - pos == blockSize {
+                fr = Array(out[pos..<end])
+            } else {
+                break // trailing partial block has no next FR; done
+            }
+            pos = end
+        }
+        return Data(out)
+    }
 }
 
 enum PGPSymmetricAlgo {

@@ -19,18 +19,62 @@
 
 ### 1.3 Criação de pastas remotas
 
-- Para cada diretório em ordem topológica: `POST /drive/v4/nodes (parentID, name, type=folder)` criptografando nome com Node key do pai.
+- Para cada diretório em ordem topológica: `POST /drive/shares/{shareID}/folders`
+  (`ParentLinkID`, `Name`, `Hash`, `NodeKey`, `NodeHashKey`, `NodePassphrase`,
+  `NodePassphraseSignature`, `SignatureAddress` — exatamente 8 campos, SEM
+  `XAttr`; verificado live 2026-09-30: pasta `NT-F42-*` criada, nome/HMAC
+  lidos de volta com nosso código).
+  Por pasta: gera keypair novo via `FolderCreate`/`NodeKeyGen` — chave
+  TRANSFERÍVEL completa (primária tag 5 + UID `Drive key
+  <noreply@protonmail.com>` tag 13 + auto-certificação tag 2 tipo 0x13 +
+  subkey tag 7 + binding tag 2 tipo 0x18; blobs nus 5+7 são rejeitados com
+  200501); nome cifrado com a Node key do pai + assinatura inline da address
+  key (`MessageEncrypt.encryptSigned`); `Hash` = HMAC-SHA256 hex com a
+  `NodeHashKey` do pai **decodificada de base64** (`NameHash`); `NodePassphrase`
+  cifrada para o pai + assinatura detached da address key (`DetachedSign`).
+- Convenções de assinatura live-verificadas (rclone-capturado): hash SHA-256
+  (8, não SHA-512), salt `salt@notations.openpgpjs.org` de 16 bytes frescos
+  por assinatura, creation-time crítica (0x82), issuer-fingerprint (0x21),
+  OPS `nested=0x01` (quirk oficial), literais com data real. Sem o set de
+  notation o servidor rejeita (200501).
+- `SignatureAddress` = email do criador (validado; ID rejeita com 2501).
+  Pastas NÃO carregam `XAttr` (ausente nas pastas oficiais).
+  Share tipo Photo rejeita criação (2511) — criar só em shares Drive.
 - Memoiza `relativePath → nodeID` em memória + persiste no `TransferJob` para retry idempotente.
 - Conflito de nome: sufixo ` (1)`, ` (2)` — nunca sobrescreve silenciosamente.
 
 ### 1.4 Chunking + encrypt + upload
 
-- Tamanho de bloco versionado (`BlockFormatVersion`), default a definir no spike F4 (ex.: 4 MiB).
-- Por arquivo:
-  1. `GET upload session` / `POST draft` para obter `uploadURL` + session key.
-  2. Split → AES-CFB encrypt por bloco → SHA256 por bloco + MDC final.
-  3. `PUT` blocos em ordem ou paralelo limitado (dentro do limite global 4–8).
-  4. `POST commit` com lista de hashes. Servidor verifica.
+- Tamanho de bloco versionado (`BlockFormatVersion`), default 4 MiB
+  (`FileUpload.defaultBlockSize`, parâmetro em toda chamada).
+- Por arquivo (F4.3, sem fila/UI — capturado do rclone, `FileUpload` +
+  `DriveClient.uploadFile`):
+  1. `POST .../links/{parent}/checkAvailableHashes {Hashes:[nameHashHex]}`
+     (duplicate-name probe; rclone chama 2x idêntico — quirk, chamamos 1x).
+  2. `POST .../shares/{id}/files` (draft, 10 campos: envelope pasta SEM
+     `NodeHashKey` + `MIMEType` + `ContentKeyPacket`/`ContentKeyPacketSignature`
+     no lugar; SEM `XAttr`) → `{File:{ID, RevisionID}}`.
+  3. `POST /drive/blocks {AddressID, ShareID, LinkID, RevisionID, BlockList}`
+     → `{UploadLinks:[{BareURL, Token, URL, Index}]}` (host de storage vem do
+     `BareURL` em runtime, nunca hardcoded).
+  4. `POST {BareURL}/storage/blocks` multipart (`Block`/`blob`,
+     `application/octet-stream`, header `Pm-Storage-Token`) com os bytes do
+     bloco cifrado.
+  5. `PUT .../files/{linkID}/revisions/{revID} {ManifestSignature,
+     SignatureAddress, XAttr}` → Code 1000.
+- Semântica cripto verificada por decodificação dos blobs (detalhes em
+  `Core/ProtonAPI/FileUpload.swift`): `ContentKeyPacket` = PKESK nu (96B,
+  base64 sem armor) da chave de sessão de 32B para a subkey #18 do próprio
+  node, auto-assinado pelo node; bloco = pacote SED tag-18 cru (chave de
+  conteúdo, literal `""`), `Size` = tamanho cifrado (26B → 77B), `Hash` =
+  base64(SHA-256 do bloco em claro, 44ch); `EncSignature` = literal sem
+  assinatura da detached da hash do bloco (address key) cifrada para o node;
+  `ManifestSignature` = address key sobre a concatenação das hashes cruas em
+  ordem; `XAttr` = JSON `Common.{ModificationTime,Size,MIMEType,BlockSizes}`
+  cifrado+assinado pelo node. VARIANT-UNCERTAIN (a confirmar live):
+  entrada exata da manifest (raw vs base64-ascii), signatário do EncSignature
+  (address vs node), schema exato do XAttr, `Hash` do bloco (claro vs cifrado).
+- Arquivo 0 bytes: draft + commit direto (sem sessão de blocos, manifesto vazio).
 - Falha de bloco: retry com backoff+jitter (ver §3), não reinicia arquivo inteiro se manifesto parcial existe.
 
 ### 1.5 Paralelismo

@@ -66,6 +66,62 @@ struct APIClient: Sendable {
         return try await decode(T.self, request: req)
     }
 
+    /// Authenticated POST with a JSON body (folder creation, trash/delete).
+    func post<T: Decodable, B: Encodable & Sendable>(
+        _ type: T.Type,
+        path: String,
+        uid: String,
+        accessToken: String,
+        body: B
+    ) async throws -> T {
+        let req = try request(path, method: "POST", uid: uid, accessToken: accessToken, body: body)
+        return try await decode(T.self, request: req)
+    }
+
+    /// Authenticated PUT with a JSON body (revision commit).
+    func put<T: Decodable, B: Encodable & Sendable>(
+        _ type: T.Type,
+        path: String,
+        uid: String,
+        accessToken: String,
+        body: B
+    ) async throws -> T {
+        let req = try request(path, method: "PUT", uid: uid, accessToken: accessToken, body: body)
+        return try await decode(T.self, request: req)
+    }
+
+    /// Raw encrypted-block POST to a runtime storage host (UploadLinks
+    /// BareURL — never hardcoded). Single multipart part name "Block"
+    /// filename "blob", token in the Pm-Storage-Token header (log parity).
+    func uploadRawBlock(
+        bareURL: String,
+        token: String,
+        uid: String,
+        accessToken: String,
+        body: Data,
+        boundary: String
+    ) async throws {
+        guard let url = URL(string: bareURL) else {
+            throw ProtonAPIError.transport(URLError(.badURL))
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue(token, forHTTPHeaderField: "Pm-Storage-Token")
+        req.setValue(AppVersion.headerValue, forHTTPHeaderField: "x-pm-appversion")
+        req.setValue(uid, forHTTPHeaderField: "x-pm-uid")
+        req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        req.httpBody = body
+        let (data, response) = try await data(for: req)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ProtonAPIError.transport(URLError(.badServerResponse))
+        }
+        let env = try JSONDecoder().decode(ProtonEnvelope.self, from: data)
+        guard env.code == 1000 || env.code == 1001 else {
+            throw ProtonAPIError.api(code: env.code, message: env.error ?? "storage upload failed")
+        }
+    }
+
     // MARK: - plumbing
 
     func decode<T: Decodable>(_ type: T.Type, request: URLRequest) async throws -> T {
@@ -86,11 +142,17 @@ struct APIClient: Sendable {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            // surface nested API error if present
+            // surface nested API error if present, else the decoding error
+            // WITH a raw body prefix (decode mysteries are otherwise opaque —
+            // e.g. a commit response that carries Code 1000 in odd framing).
             if let env = try? JSONDecoder().decode(ProtonEnvelope.self, from: data) {
-                throw ProtonAPIError.api(code: env.code, message: env.error ?? error.localizedDescription)
+                let body = String(data: data.prefix(600), encoding: .utf8) ?? "<binary>"
+                throw ProtonAPIError.api(code: env.code, message: "\(env.error ?? error.localizedDescription) body=\(body)")
             }
-            throw error
+            let body = String(data: data.prefix(600), encoding: .utf8) ?? "<binary>"
+            throw ProtonAPIError.transport(DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: [], debugDescription:
+                    "\(error.localizedDescription) body=\(body)")))
         }
     }
 

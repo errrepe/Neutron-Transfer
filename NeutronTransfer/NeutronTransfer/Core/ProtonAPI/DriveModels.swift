@@ -77,12 +77,20 @@ struct ShareMetadata: Decodable, Sendable {
     }
 }
 
+struct SharesResponse: Decodable, Sendable {
+    var shares: [ShareMetadata]
+    enum CodingKeys: String, CodingKey { case shares = "Shares" }
+}
+
 struct DriveShare: Decodable, Sendable {
     var shareID: String
     var linkID: String?
     var volumeID: String?
     var type: Int?
     var state: Int?
+    /// Creator email address (go-proton-api Share.Creator) — used as
+    /// SignatureAddress on folder/file creation.
+    var creator: String?
     var addressID: String?
     var addressKeyID: String?
     var key: String?
@@ -95,17 +103,13 @@ struct DriveShare: Decodable, Sendable {
         case volumeID = "VolumeID"
         case type = "Type"
         case state = "State"
+        case creator = "Creator"
         case addressID = "AddressID"
         case addressKeyID = "AddressKeyID"
         case key = "Key"
         case passphrase = "Passphrase"
         case passphraseSignature = "PassphraseSignature"
     }
-}
-
-struct SharesResponse: Decodable, Sendable {
-    var shares: [ShareMetadata]
-    enum CodingKeys: String, CodingKey { case shares = "Shares" }
 }
 
 struct ShareResponse: Decodable, Sendable {
@@ -135,6 +139,10 @@ struct DriveLink: Decodable, Sendable, Identifiable {
     var nodeKey: String?
     var nodePassphrase: String?
     var nodePassphraseSignature: String?
+    /// Address that signed the passphrase/name (go-proton-api Link.SignatureEmail).
+    var signatureEmail: String?
+    /// Extended attributes (PGP message to the node key; JSON metadata).
+    var xAttr: String?
     var fileProperties: FileProperties?
     var folderProperties: FolderProperties?
 
@@ -156,6 +164,8 @@ struct DriveLink: Decodable, Sendable, Identifiable {
         case nodeKey = "NodeKey"
         case nodePassphrase = "NodePassphrase"
         case nodePassphraseSignature = "NodePassphraseSignature"
+        case signatureEmail = "SignatureEmail"
+        case xAttr = "XAttr"
         case fileProperties = "FileProperties"
         case folderProperties = "FolderProperties"
     }
@@ -178,7 +188,7 @@ struct FolderProperties: Decodable, Sendable {
     enum CodingKeys: String, CodingKey { case nodeHashKey = "NodeHashKey" }
 }
 
-struct RevisionMetadata: Decodable, Sendable {
+struct RevisionMetadata: Codable, Sendable {
     var id: String?
     var createTime: Int64?
     var size: Int64?
@@ -198,6 +208,50 @@ struct RevisionMetadata: Decodable, Sendable {
         case thumbnail = "Thumbnail"
         case thumbnailHash = "ThumbnailHash"
     }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id)
+        createTime = try c.decodeIfPresent(Int64.self, forKey: .createTime)
+        size = try c.decodeIfPresent(Int64.self, forKey: .size)
+        manifestSignature = try c.decodeIfPresent(String.self, forKey: .manifestSignature)
+        signatureEmail = try c.decodeIfPresent(String.self, forKey: .signatureEmail)
+        state = try c.decodeIfPresent(Int.self, forKey: .state)
+        thumbnailHash = try c.decodeIfPresent(String.self, forKey: .thumbnailHash)
+        // Live-verified: committed files send Thumbnail as number (0/1);
+        // drafts omit it and some paths send Bool. Accept both, encode as Bool.
+        if !c.contains(.thumbnail) {
+            thumbnail = nil
+        } else if try c.decodeNil(forKey: .thumbnail) {
+            thumbnail = nil
+        } else if let b = try? c.decode(Bool.self, forKey: .thumbnail) {
+            thumbnail = b
+        } else if let i = try? c.decode(Int.self, forKey: .thumbnail) {
+            thumbnail = i != 0
+        } else if let i64 = try? c.decode(Int64.self, forKey: .thumbnail) {
+            thumbnail = i64 != 0
+        } else {
+            throw DecodingError.typeMismatch(
+                Bool.self,
+                DecodingError.Context(
+                    codingPath: c.codingPath + [CodingKeys.thumbnail],
+                    debugDescription: "Expected Bool or Int (0/1) for Thumbnail"
+                )
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(id, forKey: .id)
+        try c.encodeIfPresent(createTime, forKey: .createTime)
+        try c.encodeIfPresent(size, forKey: .size)
+        try c.encodeIfPresent(manifestSignature, forKey: .manifestSignature)
+        try c.encodeIfPresent(signatureEmail, forKey: .signatureEmail)
+        try c.encodeIfPresent(state, forKey: .state)
+        try c.encodeIfPresent(thumbnail, forKey: .thumbnail)
+        try c.encodeIfPresent(thumbnailHash, forKey: .thumbnailHash)
+    }
 }
 
 struct LinkResponse: Decodable, Sendable {
@@ -208,4 +262,277 @@ struct LinkResponse: Decodable, Sendable {
 struct LinksResponse: Decodable, Sendable {
     var links: [DriveLink]
     enum CodingKeys: String, CodingKey { case links = "Links" }
+}
+
+// MARK: - Folder creation (F4.2)
+
+// POST /drive/shares/{shareID}/folders. Keys mirror go-proton-api
+// CreateFolderReq (default encoding/json => capitalized field names).
+struct CreateFolderRequest: Encodable, Sendable {
+    var parentLinkID: String
+    var name: String // encrypted to parent keyring, inline-signed by address key
+    var hash: String // hex HMAC-SHA256(parentHashKey, NFC name)
+    var nodeKey: String // fresh armored node key, locked with nodePassphrase
+    var nodeHashKey: String // fresh random, encrypted+signed to the new node key
+    var nodePassphrase: String // encrypted to parent keyring
+    var nodePassphraseSignature: String // detached, signed by address key
+    var signatureAddress: String? // share creator address ID (if server expects it)
+    var signatureEmail: String? // signer email (Link.SignatureEmail symmetric)
+    var xAttr: String? // folder/file extended attributes, encrypted to the new node key
+
+    enum CodingKeys: String, CodingKey {
+        case parentLinkID = "ParentLinkID"
+        case name = "Name"
+        case hash = "Hash"
+        case nodeKey = "NodeKey"
+        case nodeHashKey = "NodeHashKey"
+        case nodePassphrase = "NodePassphrase"
+        case nodePassphraseSignature = "NodePassphraseSignature"
+        case signatureAddress = "SignatureAddress"
+        case signatureEmail = "SignatureEmail"
+        case xAttr = "XAttr"
+    }
+
+    // encodeIfPresent: Go decoding chokes on explicit nulls for plain
+    // strings, and unknown/extra keys must be omitted per variant.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(parentLinkID, forKey: .parentLinkID)
+        try c.encode(name, forKey: .name)
+        try c.encode(hash, forKey: .hash)
+        try c.encode(nodeKey, forKey: .nodeKey)
+        try c.encode(nodeHashKey, forKey: .nodeHashKey)
+        try c.encode(nodePassphrase, forKey: .nodePassphrase)
+        try c.encode(nodePassphraseSignature, forKey: .nodePassphraseSignature)
+        try c.encodeIfPresent(signatureAddress, forKey: .signatureAddress)
+        try c.encodeIfPresent(signatureEmail, forKey: .signatureEmail)
+        try c.encodeIfPresent(xAttr, forKey: .xAttr)
+    }
+}
+
+struct CreateFolderResponse: Decodable, Sendable {
+    struct Folder: Decodable, Sendable {
+        var id: String // created LinkID
+        enum CodingKeys: String, CodingKey { case id = "ID" }
+    }
+    var folder: Folder
+    enum CodingKeys: String, CodingKey { case folder = "Folder" }
+}
+
+// MARK: - File upload (F4.3)
+
+// POST /drive/shares/{shareID}/files. Keys mirror go-proton-api
+// CreateFileReq: the folder envelope (ParentLinkID, Name, Hash, NodeKey,
+// NodePassphrase, NodePassphraseSignature, SignatureAddress) plus MIMEType
+// and the content-key packet pair INSTEAD of NodeHashKey; NO XAttr at draft
+// (XAttr is committed at revision time). Reference: /tmp/f43ref/req-4.
+struct CreateFileRequest: Encodable, Sendable {
+    var parentLinkID: String
+    var name: String // encrypted to parent keyring, inline-signed by address key
+    var hash: String // hex HMAC-SHA256(parentHashKey, NFC name)
+    var mimeType: String // e.g. "text/plain; charset=utf-8"
+    var contentKeyPacket: String // UNARMORED base64 of bare PKESK to node subkey
+    var contentKeyPacketSignature: String // detached, self-signed by node key
+    var nodeKey: String // fresh armored node key, locked with nodePassphrase
+    var nodePassphrase: String // encrypted to parent keyring
+    var nodePassphraseSignature: String // detached, signed by address key
+    var signatureAddress: String?
+    var signatureEmail: String?
+
+    enum CodingKeys: String, CodingKey {
+        case parentLinkID = "ParentLinkID"
+        case name = "Name"
+        case hash = "Hash"
+        case mimeType = "MIMEType"
+        case contentKeyPacket = "ContentKeyPacket"
+        case contentKeyPacketSignature = "ContentKeyPacketSignature"
+        case nodeKey = "NodeKey"
+        case nodePassphrase = "NodePassphrase"
+        case nodePassphraseSignature = "NodePassphraseSignature"
+        case signatureAddress = "SignatureAddress"
+        case signatureEmail = "SignatureEmail"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(parentLinkID, forKey: .parentLinkID)
+        try c.encode(name, forKey: .name)
+        try c.encode(hash, forKey: .hash)
+        try c.encode(mimeType, forKey: .mimeType)
+        try c.encode(contentKeyPacket, forKey: .contentKeyPacket)
+        try c.encode(contentKeyPacketSignature, forKey: .contentKeyPacketSignature)
+        try c.encode(nodeKey, forKey: .nodeKey)
+        try c.encode(nodePassphrase, forKey: .nodePassphrase)
+        try c.encode(nodePassphraseSignature, forKey: .nodePassphraseSignature)
+        try c.encodeIfPresent(signatureAddress, forKey: .signatureAddress)
+        try c.encodeIfPresent(signatureEmail, forKey: .signatureEmail)
+    }
+}
+
+struct CreateFileResponse: Decodable, Sendable {
+    struct File: Decodable, Sendable {
+        var id: String
+        var revisionID: String
+        enum CodingKeys: String, CodingKey {
+            case id = "ID"
+            case revisionID = "RevisionID"
+        }
+    }
+    var file: File
+    enum CodingKeys: String, CodingKey { case file = "File" }
+}
+
+// POST /drive/shares/{shareID}/links/{parentLinkID}/checkAvailableHashes.
+// Duplicate-name probe: the server echoes free name hashes in
+// AvailableHashes (PendingHashes tracks in-flight uploads).
+struct CheckAvailableHashesRequest: Encodable, Sendable {
+    var hashes: [String]
+    enum CodingKeys: String, CodingKey { case hashes = "Hashes" }
+}
+
+struct CheckAvailableHashesResponse: Decodable, Sendable {
+    var availableHashes: [String]
+    var pendingHashes: [String]
+    enum CodingKeys: String, CodingKey {
+        case availableHashes = "AvailableHashes"
+        case pendingHashes = "PendingHashes"
+    }
+}
+
+// POST /drive/blocks. One entry per block: 1-based Index, encrypted-packet
+// Size, EncSignature (block-hash sig, node-encrypted), Hash (base64 SHA-256
+// of the PLAINTEXT block). AddressID is the uploader's address ID.
+struct BlockUploadEntry: Encodable, Sendable {
+    var index: Int
+    var size: Int
+    var encSignature: String
+    var hash: String
+    enum CodingKeys: String, CodingKey {
+        case index = "Index"
+        case size = "Size"
+        case encSignature = "EncSignature"
+        case hash = "Hash"
+    }
+}
+
+struct RequestBlockUploadsRequest: Encodable, Sendable {
+    var addressID: String
+    var shareID: String
+    var linkID: String
+    var revisionID: String
+    var blockList: [BlockUploadEntry]
+    enum CodingKeys: String, CodingKey {
+        case addressID = "AddressID"
+        case shareID = "ShareID"
+        case linkID = "LinkID"
+        case revisionID = "RevisionID"
+        case blockList = "BlockList"
+    }
+}
+
+struct StorageUploadLink: Decodable, Sendable {
+    /// POST target (runtime storage host — never hardcode). The reference
+    /// client posts to BareURL with the Token in the Pm-Storage-Token header
+    /// (URL embeds the token in-path instead; either resolves server-side).
+    var bareURL: String
+    var token: String
+    var url: String
+    var index: Int
+    enum CodingKeys: String, CodingKey {
+        case bareURL = "BareURL"
+        case token = "Token"
+        case url = "URL"
+        case index = "Index"
+    }
+}
+
+struct RequestBlockUploadsResponse: Decodable, Sendable {
+    var uploadLinks: [StorageUploadLink]
+    enum CodingKeys: String, CodingKey { case uploadLinks = "UploadLinks" }
+}
+
+// PUT /drive/shares/{shareID}/files/{linkID}/revisions/{revisionID}.
+struct CommitRevisionRequest: Encodable, Sendable {
+    var manifestSignature: String // detached, address key over manifest input
+    var signatureAddress: String?
+    var signatureEmail: String?
+    var xAttr: String // node-encrypted + node-signed attributes JSON
+    enum CodingKeys: String, CodingKey {
+        case manifestSignature = "ManifestSignature"
+        case signatureAddress = "SignatureAddress"
+        case signatureEmail = "SignatureEmail"
+        case xAttr = "XAttr"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(manifestSignature, forKey: .manifestSignature)
+        try c.encodeIfPresent(signatureAddress, forKey: .signatureAddress)
+        try c.encodeIfPresent(signatureEmail, forKey: .signatureEmail)
+        try c.encode(xAttr, forKey: .xAttr)
+    }
+}
+
+/// Commit response: Code envelope + a PARTIAL updated link. Fresh-commit
+/// Link objects omit fields DriveLink requires (e.g. no Size yet), so the
+/// link surface here is decodeIfPresent-only — use getLink for the full
+/// object. (Decoding the full DriveLink here fails loudly on those shapes.)
+struct CommitRevisionResponse: Decodable, Sendable {
+    var code: Int
+    var linkID: String?
+    var state: Int?
+    var size: Int64?
+    enum CodingKeys: String, CodingKey {
+        case code = "Code"
+        case link = "Link"
+    }
+    enum LinkKeys: String, CodingKey {
+        case linkID = "LinkID"
+        case state = "State"
+        case size = "Size"
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        code = try c.decode(Int.self, forKey: .code)
+        if let l = try? c.nestedContainer(keyedBy: LinkKeys.self, forKey: .link) {
+            linkID = try? l.decode(String.self, forKey: .linkID)
+            state = try? l.decode(Int.self, forKey: .state)
+            size = try? l.decodeIfPresent(Int64.self, forKey: .size)
+        } else {
+            linkID = nil
+            state = nil
+            size = nil
+        }
+    }
+}
+
+// MARK: - Batch trash / delete (cleanup)
+
+// POST /drive/shares/{shareID}/folders/{parentLinkID}/{trash_multiple,delete_multiple}.
+struct BatchChildrenRequest: Encodable, Sendable {
+    var linkIDs: [String]
+    enum CodingKeys: String, CodingKey { case linkIDs = "LinkIDs" }
+}
+
+struct BatchChildStatus: Decodable, Sendable {
+    var code: Int
+    var error: String?
+    enum CodingKeys: String, CodingKey {
+        case code = "Code"
+        case error = "Error"
+    }
+}
+
+struct BatchChildResult: Decodable, Sendable {
+    var linkID: String
+    var response: BatchChildStatus
+    enum CodingKeys: String, CodingKey {
+        case linkID = "LinkID"
+        case response = "Response"
+    }
+}
+
+struct BatchChildrenResponse: Decodable, Sendable {
+    var responses: [BatchChildResult]
+    enum CodingKeys: String, CodingKey { case responses = "Responses" }
 }

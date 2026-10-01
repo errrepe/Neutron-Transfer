@@ -30,4 +30,35 @@ enum Armor {
         }
         return data
     }
+
+    /// ASCII-armors packet bytes (RFC 4880 §6): BEGIN/END lines, 64-column
+    /// base64, CRC24 trailer. Inverse of decode.
+    static func encode(_ data: Data, header: String = "MESSAGE") -> String {
+        let b64 = data.base64EncodedString()
+        var lines = ["-----BEGIN PGP \(header)-----", ""]
+        var i = b64.startIndex
+        while i < b64.endIndex {
+            let j = b64.index(i, offsetBy: 64, limitedBy: b64.endIndex) ?? b64.endIndex
+            lines.append(String(b64[i..<j]))
+            i = j
+        }
+        lines.append("=" + crc24(data))
+        lines.append("-----END PGP \(header)-----")
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// CRC24 (RFC 4880 §6.1): poly 0x1864CFB, init 0xB704CE.
+    private static func crc24(_ data: Data) -> String {
+        var crc: UInt32 = 0xB704CE
+        for byte in data {
+            crc ^= UInt32(byte) << 16
+            for _ in 0..<8 {
+                crc <<= 1
+                if crc & 0x1000000 != 0 { crc ^= 0x1864CFB }
+            }
+        }
+        crc &= 0xFFFFFF
+        let bytes = [UInt8((crc >> 16) & 0xFF), UInt8((crc >> 8) & 0xFF), UInt8(crc & 0xFF)]
+        return Data(bytes).base64EncodedString()
+    }
 }

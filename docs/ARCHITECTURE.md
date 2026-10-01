@@ -93,6 +93,18 @@ User key (key password / passphrase)
 - Download: fetch blocos → decrypt → verify SHA256/MDC → escreve.
 - Tamanho de bloco e formato versionados em `struct BlockFormatVersion` para suportar migração 2026/2027 sem reescrever engines.
 
+### 5.4 MessageCrypto (F4.1, offline-verified)
+
+- Encrypt mirror of the F3b decrypt path: `ECDHEncrypt` (PKESK v3, algo 18)
+  + `SEDEncrypt` (tag 9 resync / tag 18 v1 + MDC) + `LiteralPacket` (tag 11)
+  + `MessageEncrypt.encrypt` → armored output via `Armor.encode` (CRC24).
+- `MessageEncrypt.encryptName` encrypts link names to the PARENT keyring
+  (root name <- share key, child name <- parent node key), mirroring
+  `DecryptChain.decryptName`. Folder-creation live wiring is F4.2.
+- Proven offline: 22-vector suite + GnuPG 2.5 interop (our tag-18 message
+  decrypts cleanly; tag-9 plaintext byte-exact, gated only by GnuPG's MDC
+  enforcement policy).
+
 ## 6. UploadEngine
 
 Ver detalhe em `TRANSFERS.md`. Resumo:
