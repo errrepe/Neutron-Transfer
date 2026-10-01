@@ -136,3 +136,47 @@ maxAttempts por bloco = 5, por job = persistente com contador
 - Drop com 10k+ arquivos: paginação da coleta, sem bloquear main thread (`Task.detached` + progressivo).
 - Disco cheio: pré-checa espaço (`URLResourceValues.volumeAvailableCapacity`), falha elegante antes de baixar.
 - Rede cai: jobs `running` → `queued` no relaunch, resume de blocos.
+
+## 7. F4.4 — fila de upload + UI drag-drop (implementado 2026-10-01, offline)
+
+Arquivos: `Core/Transfers/TransferQueue.swift` (ator + `TransferFailure` +
+`TransferRetryPolicy` + protocolos `TransferUploader`/`RemoteFolderCreator`),
+`Core/Transfers/LocalTreeScan.swift` (coleta recursiva),
+`Core/Transfers/DriveUploadAdapter.swift` (ponte live),
+`Features/Transfers/TransferQueueView{,Model}.swift` (aba Uploads),
+`NeutronTransferTests/TransferQueueTests.swift` (18 testes; suite 59/59 via
+`/tmp/nt-tests` + `swift test`; build Xcode verde, scheme `NeutronTransfer`,
+DerivedData externo).
+
+- Job: arquivo local → share/parent, estados
+  queued/uploading/paused/done/failed/cancelled, `bytesTotal/Done`,
+  `attempt` persistente, `maxAttempts` (default 5), `remoteLinkID` no sucesso.
+- Persistência = snapshot JSON atômico em
+  `Application Support/NeutronTransfer/transfer-queue.json` (NÃO SwiftData:
+  um ator dono de um snapshot `Codable` tem menos modos de falha que um grafo
+  `@Model` + `ModelContext`; só paths/IDs/progresso, NUNCA segredos —
+  verificado por teste `snapshotHoldsNoSecrets`). `uploading` → `queued` no load.
+- Concorrência: 3 uploads simultâneos, sequencial por job (caminho verificado
+  `DriveClient.uploadFile`; blocos paralelos por job ficam diferidos, §1.5).
+  Backoff em-slot: `min(60s, 1s·2^(n-1)) + jitter 0..1s`, `sleeper` injetável.
+  Classificação: 429/5xx + `URLError` transitório → retry; resto permanente;
+  desconhecido = permanente (retry é opt-in); HV 9001 → `pauseAll()`.
+- Recursivo: `LocalTreeScan.collect` (relativos NFC estruturais — nunca strip
+  de prefixo absoluto: FileManager canoniza `/tmp` → `/private/tmp`;
+  symlinks seguidos só dentro da árvore, fora ignora+conta, loops por visited
+  set, hidden skip) → `enqueueTree` cria pastas pai→filho via `ensureFolder`
+  (memo por path relativo) e enfileira arquivos com `parentLinkID` resolvido.
+- Adapter live: resolve keyrings por share raiz (`unlockShare`/`unlockNode` +
+  `NodeHashKey` base64→32B, cache em memória), carrega bytes do disco,
+  `uploadFile` + `progress(total)` no fim (granularidade por arquivo em F4.4;
+  progresso por bloco é refactor futuro). `ensureFolder` tenta
+  `nome`, `nome (1)`, `nome (2)` em erro `.api` (código exato de duplicata
+  ainda VARIANT — confirma live em F4.5). Memo de pastas por sessão:
+  jobs com parent de sessão anterior falham permanente com "re-add"
+  (persistir `relativePath → nodeID` no job é F4.5, cf. §1.3).
+- UI: aba Uploads (Browse | Uploads) com Picker de share destino (raiz do
+  share), `NSOpenPanel` (arquivos+pastas, multi) + `.onDrop(of: [.fileURL])`,
+  bookmarks security-scoped best-effort por arquivo, linhas com
+  progresso/estado/pausar/retomar/cancelar/relaçar/remover + "Retry all failed".
+- Retry F4.4 recomeça o ARQUIVO inteiro (sem resume de manifesto parcial —
+  difere do aspirado em §1.4; resume de blocos é follow-up).
