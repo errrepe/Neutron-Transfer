@@ -49,7 +49,7 @@ struct VolumesResponse: Decodable, Sendable {
 
 // MARK: - Shares
 
-struct ShareMetadata: Decodable, Sendable {
+struct ShareMetadata: Codable, Sendable {
     var shareID: String
     var linkID: String
     var volumeID: String
@@ -74,6 +74,88 @@ struct ShareMetadata: Decodable, Sendable {
         case flags = "Flags"
         case locked = "Locked"
         case volumeSoftDeleted = "VolumeSoftDeleted"
+    }
+
+    init(
+        shareID: String, linkID: String, volumeID: String, type: Int, state: Int,
+        creationTime: Int64, modifyTime: Int64, creator: String? = nil,
+        flags: Int? = nil, locked: Bool? = nil, volumeSoftDeleted: Bool? = nil
+    ) {
+        self.shareID = shareID
+        self.linkID = linkID
+        self.volumeID = volumeID
+        self.type = type
+        self.state = state
+        self.creationTime = creationTime
+        self.modifyTime = modifyTime
+        self.creator = creator
+        self.flags = flags
+        self.locked = locked
+        self.volumeSoftDeleted = volumeSoftDeleted
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        shareID = try c.decode(String.self, forKey: .shareID)
+        linkID = try c.decode(String.self, forKey: .linkID)
+        volumeID = try c.decode(String.self, forKey: .volumeID)
+        type = try c.decode(Int.self, forKey: .type)
+        state = try c.decode(Int.self, forKey: .state)
+        creationTime = try c.decode(Int64.self, forKey: .creationTime)
+        modifyTime = try c.decode(Int64.self, forKey: .modifyTime)
+        creator = try c.decodeIfPresent(String.self, forKey: .creator)
+        flags = try c.decodeIfPresent(Int.self, forKey: .flags)
+        // Live-tolerant: the Go server may encode booleans as 0/1 numbers
+        // (same risk as RevisionMetadata.Thumbnail, already fixed). Accept
+        // Bool, Int/Int64 (0/1), "true"/"false"/"0"/"1", null/missing → nil.
+        locked = try Self.decodeBoolTolerant(c, key: .locked)
+        volumeSoftDeleted = try Self.decodeBoolTolerant(c, key: .volumeSoftDeleted)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(shareID, forKey: .shareID)
+        try c.encode(linkID, forKey: .linkID)
+        try c.encode(volumeID, forKey: .volumeID)
+        try c.encode(type, forKey: .type)
+        try c.encode(state, forKey: .state)
+        try c.encode(creationTime, forKey: .creationTime)
+        try c.encode(modifyTime, forKey: .modifyTime)
+        try c.encodeIfPresent(creator, forKey: .creator)
+        try c.encodeIfPresent(flags, forKey: .flags)
+        try c.encodeIfPresent(locked, forKey: .locked)
+        try c.encodeIfPresent(volumeSoftDeleted, forKey: .volumeSoftDeleted)
+    }
+
+    static func decodeBoolTolerant(
+        _ c: KeyedDecodingContainer<CodingKeys>, key: CodingKeys
+    ) throws -> Bool? {
+        if !c.contains(key) { return nil }
+        if try c.decodeNil(forKey: key) { return nil }
+        if let b = try? c.decode(Bool.self, forKey: key) { return b }
+        if let i = try? c.decode(Int.self, forKey: key) { return i != 0 }
+        if let i64 = try? c.decode(Int64.self, forKey: key) { return i64 != 0 }
+        if let s = try? c.decode(String.self, forKey: key) {
+            switch s.lowercased() {
+            case "true", "1": return true
+            case "false", "0": return false
+            default:
+                throw DecodingError.typeMismatch(
+                    Bool.self,
+                    DecodingError.Context(
+                        codingPath: c.codingPath + [key],
+                        debugDescription: "Expected Bool, 0/1 or \"true\"/\"false\" string"
+                    )
+                )
+            }
+        }
+        throw DecodingError.typeMismatch(
+            Bool.self,
+            DecodingError.Context(
+                codingPath: c.codingPath + [key],
+                debugDescription: "Expected Bool or Int (0/1) for boolean flag"
+            )
+        )
     }
 }
 
@@ -390,9 +472,32 @@ struct CheckAvailableHashesRequest: Encodable, Sendable {
     enum CodingKeys: String, CodingKey { case hashes = "Hashes" }
 }
 
+struct PendingHash: Decodable, Sendable {
+    /// Name-hash hex of the in-flight object.
+    var hash: String?
+    var revisionID: String?
+    var linkID: String?
+    var clientUID: String?
+
+    enum CodingKeys: String, CodingKey {
+        case hash = "Hash"
+        case revisionID = "RevisionID"
+        case linkID = "LinkID"
+        case clientUID = "ClientUID"
+    }
+}
+
 struct CheckAvailableHashesResponse: Decodable, Sendable {
     var availableHashes: [String]
-    var pendingHashes: [String]
+    /// In-flight uploads for the probed hashes. EMPTY (`[]`) on a free name
+    /// (the only shape the rclone reference `/tmp/f43ref/resp-2/3.json`
+    /// captured) — but a stale draft makes the server return OBJECTS
+    /// (`{Hash, RevisionID, LinkID, ClientUID:null}`, live-proven F6:
+    /// a leftover state=0 draft turned the probe's hash pending and the old
+    /// `[String]` model failed decode). All fields optional: this list is
+    /// informational (the upload path ignores it), so shape drift must never
+    /// fail the call.
+    var pendingHashes: [PendingHash]
     enum CodingKeys: String, CodingKey {
         case availableHashes = "AvailableHashes"
         case pendingHashes = "PendingHashes"

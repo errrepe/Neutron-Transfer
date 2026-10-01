@@ -1,6 +1,9 @@
-// Neutron Transfer — upload queue view-model (F4.4, live only).
+// Neutron Transfer — upload queue view-model (F4.4 live, F6 unified).
 // Bridges the offline-tested TransferQueue actor to SwiftUI: destination
 // share picking, NSOpenPanel + drop intake, bookmark capture, live snapshots.
+// F6: reports remote-tree mutations to the shared TransferActivityStore so
+// the browser refreshes post-operation; all user-facing strings go through
+// UserFacingError (actionable, 2028 wait guidance).
 import AppKit
 import Foundation
 
@@ -19,17 +22,21 @@ final class TransferQueueViewModel {
     var selectedShareID: String?
     var status = "Queue.device idle"
     var isAdding = false
+    var isLoadingShares = false
 
     private let queue: TransferQueue
     private let sessions: SessionManager
     private let addressKeys: [KeyringCache.UnlockedKey]
     private let drive: DriveClient
     private var started = false
+    private let activity: TransferActivityStore?
+    private var knownDone: Set<UUID> = []
 
-    init(queue: TransferQueue, sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey]) {
+    init(queue: TransferQueue, sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
         self.queue = queue
         self.sessions = sessions
         self.addressKeys = addressKeys
+        self.activity = activity
         drive = DriveClient(sessions: sessions)
     }
 
@@ -43,11 +50,22 @@ final class TransferQueueViewModel {
             started = true
             await queue.setUploader(DriveUploadAdapter(drive: drive, addressKeys: addressKeys))
             await queue.setListener { [weak self] snap in
-                Task { @MainActor [weak self] in self?.jobs = snap }
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.jobs = snap
+                    // Post-operation consistency: a newly completed upload
+                    // changed the remote tree — ask the browser to reload.
+                    let doneNow = Set(snap.filter { $0.state == .done }.map(\.id))
+                    if !doneNow.subtracting(self.knownDone).isEmpty {
+                        self.activity?.requestBrowserRefresh()
+                    }
+                    self.knownDone = doneNow
+                }
             }
             await queue.start()
         }
         jobs = await queue.snapshot()
+        knownDone = Set(jobs.filter { $0.state == .done }.map(\.id))
         await loadShares()
     }
 
@@ -56,6 +74,8 @@ final class TransferQueueViewModel {
     }
 
     func loadShares() async {
+        isLoadingShares = true
+        defer { isLoadingShares = false }
         do {
             let metas = try await drive.listShares()
             shares = metas.map {
@@ -66,9 +86,9 @@ final class TransferQueueViewModel {
                 )
             }
             if selectedShareID == nil { selectedShareID = shares.first?.id }
-            status = shares.isEmpty ? "No shares found" : "Ready — pick a destination share"
+            status = shares.isEmpty ? "No shares found — vault may be empty or still provisioning." : "Ready — pick a destination share"
         } catch {
-            status = "Shares error: \(error.localizedDescription)"
+            status = "Shares error: \(UserFacingError.message(for: error))"
         }
     }
 
@@ -118,8 +138,11 @@ final class TransferQueueViewModel {
                 }
                 totalFiles += files.count
                 status = "Enqueued \(totalFiles) file(s) → \(dest.label)"
+                // Folder creation happened inside enqueueTree (parent→child):
+                // the remote tree changed — refresh the browser.
+                activity?.requestBrowserRefresh()
             } catch {
-                status = "Add failed (\(url.lastPathComponent)): \(error.localizedDescription)"
+                status = "Add failed (\(url.lastPathComponent)): \(UserFacingError.message(for: error))"
             }
         }
         jobs = await queue.snapshot()

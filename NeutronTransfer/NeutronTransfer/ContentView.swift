@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var model = LoginViewModel()
     @State private var queue = TransferQueue(storeURL: TransferQueue.defaultStoreURL())
+    @State private var activity = TransferActivityStore()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -41,14 +42,14 @@ struct ContentView: View {
             case let .signedIn(uid):
                 Text("Signed in: \(uid)").font(.headline)
                 TabView {
-                    DriveBrowserView(sessions: model.sessionManager, addressKeys: model.addressKeys)
+                    DriveBrowserView(sessions: model.sessionManager, addressKeys: model.addressKeys, activity: activity)
                         .tabItem { Label("Browse", systemImage: "folder") }
-                    TransferQueueView(queue: queue, sessions: model.sessionManager, addressKeys: model.addressKeys)
-                        .tabItem { Label("Uploads", systemImage: "arrow.up.circle") }
+                    TransferQueueView(queue: queue, sessions: model.sessionManager, addressKeys: model.addressKeys, activity: activity)
+                        .tabItem { Label("Transfers", systemImage: "arrow.up.arrow.down.circle") }
                 }
             }
             Spacer()
-            Text("F3: end-to-end encrypted listing — names decrypted locally.")
+            Text("F6 alpha: uploads + downloads in Transfers; browser refreshes after operations.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }

@@ -234,3 +234,101 @@ scheme `NeutronTransfer`, DerivedData externo).
   reversa), vazio, `hashMismatch` fail-closed + base64 ruim, gap de índice,
   chave errada rejeitada, sufixo ` (1)` ext-aware, escrita atômica, regra
   26B→77B + `Hash == sha256(ciphertext)` (paridade fixture live).
+
+## 9. F6 — hardening alpha (implementado 2026-10-01, offline + probe live pronta)
+
+Arquivos novos: `Core/Transfers/UserFacingError.swift` (mensagens acionáveis),
+`Core/Transfers/DownloadRecord.swift` (modelo puro),
+`Features/Transfers/TransferActivityStore.swift` (histórico + refresh),
+`NeutronTransferTests/F6HardeningTests.swift` (25 testes; suite 93/93 via
+`/tmp/nt-tests` + `swift test` — sem regressão; build Xcode verde,
+scheme `NeutronTransfer`, DerivedData externo).
+Alterados: `DriveModels.ShareMetadata` (Bool tolerante),
+`TransferQueueView{,Model}` (aba Transfers unificada),
+`DriveBrowserView{,Model}` (spinners/vazios/refresh),
+`ContentView` (Browse | Transfers), `LoginViewModel` + `ProtonAPIError`
+(2028 com espera ~10min).
+
+- Unificação mínima (F5 deixou downloader dedicado; SEM reescrever
+  `TransferQueue`): `TransferQueue` continua upload-only
+  (localPath/parentLinkID/uploader). Downloads ganham registro leve
+  (`DownloadRecord`: nome/kind/state/fileCount/destino — sem segredos) num
+  `TransferActivityStore` `@Observable` compartilhado: o browser reporta
+  início/fim/falha, a aba Transfers (ex-Uploads) mostra uploads + downloads
+  juntos, com "Clear finished". Nenhum ator reescrito, nenhuma persistência nova.
+- Erros acionáveis: zero `print` em paths de usuário (auditoria: nenhum
+  `print`/`NSLog` no app); todo erro de rede/crypto/API passa por
+  `UserFacingError.message(for:)` antes de chegar à UI (status, downloadStatus,
+  jobRow, login). 2028 → "espere ~10 minutos, não logue repetidamente, reuse
+  a sessão"; 9001 → "abra drive.proton.me, complete o check, fila pausada";
+  429 → "backing off, deixe a fila rodando"; 5xx → "retry automático";
+  401 → "sign in novamente"; 2511 → "use share Drive"; hashMismatch →
+  "retry, se persistir re-upload". Strings persistidas (`errorMessage`) são
+  re-mapeadas por heurística (`message(forMessage:)`) na exibição.
+- Consistência pós-operação: `TransferActivityStore.browserRefreshCounter`
+  é bumpado ao enfileirar árvore (pastas criadas), ao completar upload (job
+  → done via listener) e ao concluir download; `DriveBrowserView` observa
+  (`onChange`) e recarrega. Spinners: shares/loading no Transfers e vault no
+  browser (`isLoading`/`isLoadingShares`/`isAdding`); vazios: "No uploads
+  yet…", "No downloads yet…", "No shares…", "Empty folder…".
+- `ShareMetadata.locked`/`volumeSoftDeleted` (`Bool?`): mesmo risco do
+  Thumbnail (Go pode enviar 0/1). Tornados tolerantes com `init(from:)`
+  custom: aceita Bool, Int/Int64 (0/1), `"true"/"false"/"0"/"1"`,
+  null/ausente → nil; encode como Bool (paridade Thumbnail). Cobertura
+  offline em `ShareMetadataBoolTests`; auditoria live via JSON bruto em
+  `/drive/shares?ShowAll=1` (tipos impressos por campo, sem segredos) na
+  bateria F6 — resultado a anexar após o run.
+- Limpeza conta de teste: listar antes de tocar (nomes decriptados), NUNCA
+  tocar no fixture `NT-F43-FIXTURE.txt` (link `9emt5ME9I1iaIHp4IA_I5g`).
+  Alvos: resíduos `NT-F4*`/`NT-OK`/`NT-DRAFT` ativos → `trash_multiple`;
+  2 arquivos em trash → `delete_multiple` NÃO se aplica a trashed (2501
+  "Draft file not found", provado probe8) — documentado e deixado;
+  pastas `f4ZGLjN_5Fup42szCV1Fgw`, `45lNNiysRU2I4jYC09HS-w` ativas → trash.
+  Se algum delete exigir endpoint desconhecido, documentar e deixar.
+- Verificação live (código do PRODUTO, 1 login SRP, resto reusa sessão;
+  espaçamento ~11min entre SRPs frescos; credenciais SÓ via env
+  `NT_USER`/`NT_PASS`, nunca em disco; probes em `/tmp`, rclone temp apagada
+  após uso): bateria `/private/tmp/nt-f6live` (SPM executável, módulo único,
+  `swift build -c release`, sem segredos no output):
+  `NT_USER=… NT_PASS=… /private/tmp/nt-f6live/.build/release/nt-f6live`
+  faz unlock → shares bruto → lista decriptada → trash resíduos ativos →
+  sobe `NT-F6-a.txt` + `NT-F6-sub/NT-F6-b.txt` via `TransferQueue` +
+  `DriveUploadAdapter` → baixa via `DriveDownloadAdapter` → `cmp`
+  byte-idêntico + SHAs impressas → trash dos `NT-F6-*` (conta limpa).
+   Último SRP fresco conhecido ~02:05 (−03); probe falha rápido (exit 3) sem
+   env e (exit 4) em 2028 sem retry.
+- Auditoria shares-raw (mesma bateria, linhas 4-6): `Locked=Bool`,
+  `VolumeSoftDeleted=Bool` nos 2 shares — o modelo tolerante (`Bool` /
+  Int 0-1 / string / null) era defensivo (paridade Thumbnail); o fio manda
+  Bool hoje, o decode tipado passa (`shares-typed-ok count=2`).
+- Gate allowlist `/drive/blocks` como LIMITADOR do alpha (mesma bateria,
+  linhas 28-32; 1 draft real + 1 bloco, mesma sessão, sem login extra):
+  produto (`external-drive-neutron_transfer@0.1.0-alpha`) → 2000
+  "You are using an outdated version of the app. Please update to upload
+  this file."; versão honesta alta
+  (`external-drive-neutron_transfer@1.75.1-stable`) → 2000 idêntico;
+  string rclone exata (`external-drive-rclone@1.75.1-stable`) → 1000.
+  Allowlist ESTRITO pela string completa (bump honesto NÃO passa) →
+  decisão SEM spoofing (ramo 3): uploads diretos SEGUEM DESABILITADOS no
+  alpha (`UserFacingError.uploadAllowlisted`, ramo `api code == 2000` + heurística
+  `"2000"+"outdated"`, cobertura `api2000UploadAllowlistHonest` /
+  `api2000StringHeuristic`). Download FUNCIONA com produto: `GET` no storage
+  host com header produto → HTTP 200, 77B (fixture, read-only, linha 32).
+- Bug live da mesma bateria (linhas 35-36): `NT-F6-a.txt` falhou com decode
+  (`api 1000: … body={"AvailableHashes":[],"PendingHashes":[{Hash,
+  RevisionID, LinkID, ClientUID:null}],"Code":1000}`) — um draft residual
+  state=0 deixou o hash pending e o servidor retornou OBJETOS em
+  `PendingHashes`, mas o modelo era `[String]` (única forma na referência
+  rclone `/tmp/f43ref/resp-2/3.json`, sempre `[]`). Corrigido offline:
+  `PendingHash {Hash?, RevisionID?, LinkID?, ClientUID?}` (tudo opcional, a
+  lista é só informative — o upload a ignora), cobertura
+  `CheckAvailableHashesTests` (vazio rclone + objeto live corpo integral).
+  Corpo integral já estava no erro (dentro do prefixo 600B do `APIClient`,
+  ~230B — sem truncamento, sem probe extra). `NT-F6-b.txt` falhou com o
+  `api 2000` esperado (gate). Roundtrip `0/2` (linha 37); draft state=0
+  `3UaNbhkZFWhbrHmkKDQgIQ` + trash do draft do gate pendentes (trash do gate
+  falhou com 2501 signature-address, linha 33 — retry após relogin).
+- Como testar (offline): `swift test --package-path /tmp/nt-tests`
+  (symlinks incluem `UserFacingError`, `DownloadRecord`, `F6HardeningTests`;
+   93/93 esperado) + build Xcode MCP scheme `NeutronTransfer`
+  (DerivedData `/Volumes/SSD 4TB/DEV/DerivedData`, sem builds concorrentes).

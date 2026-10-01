@@ -54,7 +54,7 @@ final class LoginViewModel {
             state = .error("Crypto backend missing (bcrypt). Report this bug.")
         } catch {
             password = ""
-            state = .error(error.localizedDescription)
+            state = .error(UserFacingError.message(for: error))
         }
     }
 
@@ -69,7 +69,7 @@ final class LoginViewModel {
             state = .signedIn(uid: uid)
         } catch {
             password = ""
-            state = .error(error.localizedDescription)
+            state = .error(UserFacingError.message(for: error))
         }
     }
 

@@ -1,7 +1,9 @@
-// Neutron Transfer — Drive browser with decrypted names (F3b chain).
+// Neutron Transfer — Drive browser with decrypted names (F3b chain, F6 polish).
 // Key hierarchy per share: address keys -> share keys -> root node keys.
 // Names decrypt with the PARENT keyring (root name <- share keys,
 // child name <- root node keys).
+// F6: isLoading/empty-state support, UserFacingError on all user paths,
+// download history reporting to the shared activity store.
 import AppKit
 import Foundation
 
@@ -25,6 +27,7 @@ final class DriveBrowserViewModel {
     var volumes: [Volume] = []
     var sections: [Section] = []
     var status = "Not loaded"
+    var isLoading = false
     /// F5 download progress: linkID → 0…1 (files report per-block; folders
     /// report per completed file via the status line).
     var downloadProgress: [String: Double] = [:]
@@ -32,14 +35,18 @@ final class DriveBrowserViewModel {
     var downloadStatus = ""
     private let drive: DriveClient
     private let addressKeys: [KeyringCache.UnlockedKey]
+    private let activity: TransferActivityStore?
 
-    init(sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey]) {
+    init(sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
         drive = DriveClient(sessions: sessions)
         self.addressKeys = addressKeys
+        self.activity = activity
     }
 
     func load() async {
+        isLoading = true
         status = "Loading…"
+        defer { isLoading = false }
         do {
             volumes = try await drive.listVolumes()
             let metas = try await drive.listShares()
@@ -49,14 +56,20 @@ final class DriveBrowserViewModel {
                     out.append(try await loadShare(meta))
                 } catch {
                     out.append(Section(shareID: meta.shareID, rootName: "(unavailable)",
-                                       rows: [], note: "\(error)"))
+                                       rows: [], note: UserFacingError.message(for: error)))
                 }
             }
             sections = out
             let total = out.reduce(0) { $0 + $1.rows.count }
-            status = "\(metas.count) shares · \(total) items"
+            if metas.isEmpty {
+                status = "No shares found — vault may be empty or still provisioning."
+            } else if total == 0 {
+                status = "\(metas.count) share(s) · empty — drop files in Transfers to upload."
+            } else {
+                status = "\(metas.count) shares · \(total) items"
+            }
         } catch {
-            status = "Error: \(error)"
+            status = "Error: \(UserFacingError.message(for: error))"
         }
     }
 
@@ -73,12 +86,21 @@ final class DriveBrowserViewModel {
         let rootName = (try? DecryptChain.decryptName(root, parentCandidates: shareCands))
             ?? "(unnamed folder)"
         let kids = try await drive.listChildren(shareID: share.shareID, linkID: rootID)
-        let rows = kids.map { kid in
-            Row(link: kid,
-                name: (try? DecryptChain.decryptName(kid, parentCandidates: rootCands))
-                    ?? "(could not decrypt name)")
+        var undecryptable = 0
+        let rows = kids.map { kid -> Row in
+            guard let name = try? DecryptChain.decryptName(kid, parentCandidates: rootCands) else {
+                undecryptable += 1
+                return Row(link: kid, name: "(could not decrypt name)")
+            }
+            return Row(link: kid, name: name)
         }
-        return Section(shareID: share.shareID, rootName: rootName, rows: rows)
+        let note: String?
+        if undecryptable > 0 {
+            note = "\(undecryptable) item(s) could not be decrypted with the current keys — re-login and reload; if it persists, the items may belong to another key."
+        } else {
+            note = nil
+        }
+        return Section(shareID: share.shareID, rootName: rootName, rows: rows, note: note)
     }
 
     // MARK: - download (F5)
@@ -106,6 +128,11 @@ final class DriveBrowserViewModel {
         downloading.insert(id)
         downloadProgress[id] = 0
         downloadStatus = "Downloading \(row.name)…"
+        let recordID = activity?.downloadStarted(
+            name: row.name,
+            kind: row.link.isFolder ? .folder : .file,
+            destination: destination
+        )
         defer {
             downloading.remove(id)
             downloadProgress.removeValue(forKey: id)
@@ -121,6 +148,9 @@ final class DriveBrowserViewModel {
                     }
                 }
                 downloadStatus = "Downloaded \(row.name) (\(urls.count) file(s)) → \(destination.lastPathComponent)"
+                if let recordID {
+                    activity?.downloadFinished(id: recordID, fileCount: urls.count, destination: destination)
+                }
             } else {
                 let dest = try await adapter.downloadSingleFile(
                     shareID: shareID, linkID: id, directory: destination
@@ -132,9 +162,19 @@ final class DriveBrowserViewModel {
                 }
                 downloadProgress[id] = 1
                 downloadStatus = "Downloaded \(row.name) → \(dest.lastPathComponent)"
+                if let recordID {
+                    activity?.downloadFinished(id: recordID, fileCount: 1, destination: destination)
+                }
             }
+            // Post-operation consistency: keep the browser fresh even though
+            // a download does not mutate the remote tree.
+            activity?.requestBrowserRefresh()
         } catch {
-            downloadStatus = "Download failed (\(row.name)): \(error.localizedDescription)"
+            let msg = UserFacingError.message(for: error)
+            downloadStatus = "Download failed (\(row.name)): \(msg)"
+            if let recordID {
+                activity?.downloadFailed(id: recordID, error: error)
+            }
         }
     }
 }

@@ -57,7 +57,7 @@ extension ProtonAPIError: LocalizedError {
         case .unauthorized: return "Not signed in (or session expired)."
         case .needs2FA: return "Two-factor code required."
         case .humanVerificationRequired: return "Proton requires human verification. Try again later."
-        case .rateLimited: return "Too many recent logins (Proton rate limit). Wait before retrying."
+        case .rateLimited: return "Too many recent logins (Proton 2028 rate-limit). Wait ~10 minutes before retrying — do not log in repeatedly. If you are signed in, keep using this session."
         case .invalidServerProof: return "Server proof mismatch — possible downgrade attack. Aborted."
         case .invalidModulusSignature: return "Bad SRP modulus envelope."
         case .bcryptNotAvailable: return "Crypto backend missing (bcrypt)."

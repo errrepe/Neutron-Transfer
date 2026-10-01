@@ -14,7 +14,31 @@ links/children + browser read-only) implementado e verificado contra a API.
 (vetores RFC + interop Python + pgpy); validação live pendente do cooldown do
 rate-limit de login. Cofre provisionado (usuário abriu drive.proton.me).
 **Suite `NeutronTransferTests` (Swift Testing, 13 vetores offline) verde.**
+**F4.4 fila de upload + UI drag-drop** (offline 18 testes + build verde).
+**F5 download de arquivos/pastas** para pasta escolhida (offline 9 testes +
+rclone-capturado; suite 68/68; build verde).
+**F6 hardening alpha** (offline 20 testes novos, suite 88/88; Transfers
+unificada uploads+downloads, erros acionáveis com espera 2028, refresh
+pós-operação, `ShareMetadata` Bool-tolerante, build verde): bateria live de
+roundtrip + limpeza pronta em `/private/tmp/nt-f6live` (1 login SRP, resto
+reusa sessão; credenciais SÓ via env `NT_USER`/`NT_PASS`).
 See `docs/ROADMAP.md`.
+
+## How to test
+
+- Offline (sem rede, sem segredos): `swift test --package-path /tmp/nt-tests`
+  (esperado 88/88 — 68 anteriores + 20 F6). O pacote usa symlinks para os
+  fontes do repo; `UserFacingError`, `DownloadRecord` e `F6HardeningTests`
+  já linkados.
+- Build: via Xcode MCP, scheme `NeutronTransfer`, DerivedData externo
+  `/Volumes/SSD 4TB/DEV/DerivedData` (sem builds concorrentes, sem commit).
+- Live (1 login SRP; espaçar ~11min entre SRPs frescos; nunca em disco):
+  `NT_USER=… NT_PASS=… /private/tmp/nt-f6live/.build/release/nt-f6live`
+  (build: `swift build -c release --package-path /private/tmp/nt-f6live`).
+  Faz unlock → auditoria bruta de shares → lista decriptada (nunca toca no
+  fixture `NT-F43-FIXTURE.txt`) → trash de resíduos ativos → upload
+  `NT-F6-*` via fila/adapter → download via adapter → cmp + SHAs → trash
+  de limpeza. Sem env sai 3 (sem login); em 2028 sai 4 sem retry.
 
 ## The Gap
 

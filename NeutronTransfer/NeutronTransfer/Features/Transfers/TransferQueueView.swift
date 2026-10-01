@@ -1,23 +1,27 @@
-// Neutron Transfer — upload queue UI (F4.4): drop target + job list.
+// Neutron Transfer — unified transfers UI (F6): uploads (queue) + downloads.
 // Destination = selected share root; dropped folders are recreated remotely
 // parent→child before their files enqueue (TransferQueue.enqueueTree).
+// Downloads report here via the shared TransferActivityStore (F5 downloader
+// stays dedicated — this tab only OBSERVES both, per F5 scope decision).
 import SwiftUI
 import UniformTypeIdentifiers
 
 struct TransferQueueView: View {
     @State private var model: TransferQueueViewModel
     @State private var isTargeted = false
+    private let activity: TransferActivityStore?
 
-    init(queue: TransferQueue, sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey]) {
-        model = TransferQueueViewModel(queue: queue, sessions: sessions, addressKeys: addressKeys)
+    init(queue: TransferQueue, sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
+        model = TransferQueueViewModel(queue: queue, sessions: sessions, addressKeys: addressKeys, activity: activity)
+        self.activity = activity
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Upload queue").font(.headline)
+                Text("Transfers — uploads & downloads").font(.headline)
                 Spacer()
-                if model.isAdding { ProgressView().scaleEffect(0.7) }
+                if model.isAdding || model.isLoadingShares { ProgressView().scaleEffect(0.7) }
                 Button("Add files…") { Task { await model.addPanel() } }
             }
             HStack {
@@ -33,6 +37,15 @@ struct TransferQueueView: View {
                 .frame(maxWidth: 320)
                 Button("Reload shares") { Task { await model.loadShares() } }
                     .font(.caption)
+                    .disabled(model.isLoadingShares)
+            }
+            if model.isLoadingShares && model.shares.isEmpty {
+                HStack {
+                    ProgressView().scaleEffect(0.8)
+                    Text("Loading shares…").font(.callout).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 8)
             }
             dropZone
             HStack {
@@ -43,17 +56,63 @@ struct TransferQueueView: View {
                         .font(.caption)
                 }
             }
-            List {
-                ForEach(model.jobs) { job in
-                    jobRow(job)
+            if model.jobs.isEmpty {
+                Text("No uploads yet — drop files or folders above, or use Add files…")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 12)
+            } else {
+                List {
+                    ForEach(model.jobs) { job in
+                        jobRow(job)
+                    }
                 }
+                .frame(minHeight: 120)
             }
+            downloadsSection
             Text("Photo-type shares reject creation (2511) — upload to Drive shares.")
                 .font(.caption2).foregroundStyle(.tertiary)
         }
         .padding()
         .frame(minWidth: 480, minHeight: 400)
         .task { await model.start() }
+    }
+
+    @ViewBuilder
+    private var downloadsSection: some View {
+        HStack {
+            Text("Downloads").font(.headline)
+            Spacer()
+            if let activity, activity.downloads.contains(where: { $0.state == .done || $0.state == .failed }) {
+                Button("Clear finished") { activity.clearFinished() }
+                    .font(.caption)
+            }
+        }
+        if let activity, !activity.downloads.isEmpty {
+            List {
+                ForEach(activity.downloads) { rec in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Image(systemName: rec.kind == .folder ? "folder" : "doc")
+                            Text(rec.name).font(.body).lineLimit(1).help(rec.name)
+                            Spacer()
+                            Text(rec.stateLabel).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Text(rec.summary).font(.caption).foregroundStyle(.secondary)
+                        if rec.state == .downloading {
+                            ProgressView().scaleEffect(0.7).frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+            .frame(minHeight: 80, maxHeight: 180)
+        } else {
+            Text("No downloads yet — use Browse → Download to fetch files.")
+                .font(.callout).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 8)
+        }
     }
 
     private var dropZone: some View {
@@ -90,7 +149,7 @@ struct TransferQueueView: View {
                 ProgressView(value: job.progress)
             }
             if let err = job.errorMessage, job.state == .failed {
-                Text(err).font(.caption).foregroundStyle(.orange).lineLimit(2)
+                Text(UserFacingError.message(forMessage: err)).font(.caption).foregroundStyle(.orange).lineLimit(3)
             }
         }
         .padding(.vertical, 2)

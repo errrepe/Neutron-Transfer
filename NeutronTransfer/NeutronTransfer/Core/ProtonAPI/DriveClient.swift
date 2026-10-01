@@ -114,7 +114,7 @@ actor DriveClient {
     /// reference order). `hashes` are NameHash hex strings.
     func checkAvailableHashes(
         shareID: String, parentLinkID: String, hashes: [String]
-    ) async throws -> (available: [String], pending: [String]) {
+    ) async throws -> (available: [String], pending: [PendingHash]) {
         let res: CheckAvailableHashesResponse = try await authed { uid, token in
             try await api.post(
                 CheckAvailableHashesResponse.self,
