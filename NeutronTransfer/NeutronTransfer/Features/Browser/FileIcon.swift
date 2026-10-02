@@ -13,13 +13,19 @@ enum FileIconCache {
     private static var folderIcon: NSImage?
 
     static func icon(for item: DriveItem) -> NSImage {
-        if item.isFolder {
+        icon(forName: item.name, isFolder: item.isFolder)
+    }
+
+    /// Icon for a bare file name — the transfers popover has no DriveItem,
+    /// only a name + folder flag (S3.2).
+    static func icon(forName name: String, isFolder: Bool) -> NSImage {
+        if isFolder {
             if let folderIcon { return folderIcon }
             let icon = NSWorkspace.shared.icon(for: .folder)
             folderIcon = icon
             return icon
         }
-        let ext = item.fileExtension
+        let ext = (name as NSString).pathExtension.lowercased()
         if let cached = icons[ext] { return cached }
         let type = UTType(filenameExtension: ext) ?? .data
         let icon = NSWorkspace.shared.icon(for: type)

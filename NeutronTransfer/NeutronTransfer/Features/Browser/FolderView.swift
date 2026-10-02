@@ -45,8 +45,9 @@ struct FolderView: View {
             }
             .toolbar {
                 // Spec-6.2 order: Upload, New Folder, Download, Trash,
-                // Reload. All act on `model.current` — the topmost
-                // FolderView owns the toolbar.
+                // Reload — then the S3.2 Transfers popover button. All
+                // act on `model.current` — the topmost FolderView owns
+                // the toolbar.
                 ToolbarItem(placement: .primaryAction) {
                     Menu("Upload", systemImage: "arrow.up.doc") {
                         Button("Upload Files…") {
@@ -86,6 +87,10 @@ struct FolderView: View {
                     }
                     .help("Reload")
                     .disabled(state.phase == .loading)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    // S3.2: transfers popover — badge counts in-flight items.
+                    TransfersToolbarButton()
                 }
             }
             .sheet(isPresented: $model.showingNewFolder) {

@@ -50,7 +50,7 @@ final class UploadCoordinator {
     }
 
     /// Idempotent: wires the live uploader, subscribes snapshots, pumps.
-    /// Same wiring the legacy TransferQueueViewModel used, plus the S3.1
+    /// Same wiring the retired queue view-model used, plus the S3.1
     /// hook: a job reaching `.done` changed its remote parent, so the
     /// touched linkIDs publish via `remoteChanged` (browser reloads only
     /// the folders on screen — no polling, no global refresh).
@@ -151,9 +151,9 @@ final class UploadCoordinator {
         jobs = await queue.snapshot()
     }
 
-    /// Provider → file URLs (the same loadDropped logic the legacy
-    /// TransferQueueView used — moved here so the folder-table drop and
-    /// the legacy sheet share one implementation until S3.2).
+    /// Provider → file URLs (the drop-intake logic the retired queue
+    /// sheet used — moved here so the folder-table drop and the upload
+    /// picker share one implementation).
     static func droppedFileURLs(_ providers: [NSItemProvider]) async -> [URL] {
         var urls: [URL] = []
         for provider in providers {

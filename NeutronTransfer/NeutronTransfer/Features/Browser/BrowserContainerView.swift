@@ -31,6 +31,10 @@ struct BrowserContainerView: View {
             model.observeRemoteChanges()
         }
         .environment(model)
+        // Children that need the session (S3.2 TransfersToolbarButton)
+        // must see the SAME instance the model uses — including previews,
+        // where no AppSession was injected higher up.
+        .environment(model.session)
     }
 }
 

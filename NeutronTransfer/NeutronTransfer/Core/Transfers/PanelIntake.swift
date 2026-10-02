@@ -3,8 +3,8 @@
 // async completion paths in the view-models never block MainActor and the
 // cancel-vs-confirm mapping is unit-testable without AppKit.
 //
-// Bug context (2026-10-01, sample /tmp/nt-sample.txt): DriveBrowserViewModel
-// pickAndDownload called NSSavePanel.runModal() on the MainActor. When the
+// Bug context (2026-10-01, sample /tmp/nt-sample.txt): the pre-F7 browser
+// view-model's download picker called NSSavePanel.runModal() on the MainActor. When the
 // app was not active/key the modal loop never returned and the whole UI died.
 // Fix: beginSheetModal(for:) on the key window (fallback: begin app-modal),
 // continue in the completion handler; cancel only sets a "cancelled" status.

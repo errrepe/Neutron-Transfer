@@ -1,0 +1,204 @@
+// Neutron Transfer — unified transfer display model (F7 S3.2).
+// One row type for BOTH uploads (TransferQueue jobs) and downloads
+// (TransferActivityStore records): pure Foundation mapping so the popover
+// view stays thin and every subtitle/section decision is offline-testable.
+// Secrets-free by construction: file names, sizes, destination NAMES and
+// already-mapped error strings only — no paths, no key material.
+
+import Foundation
+
+/// One row in the transfers popover (spec 6.5). `id` is the underlying
+/// job/record UUID string; `direction` tells lookups which store owns it.
+/// `isActive` = in-flight section membership (queued / uploading / paused /
+/// downloading). `isFailed` drives the red subtitle — cancelled uploads sit
+/// in the Failed section but keep a neutral subtitle (user-initiated, not
+/// an error).
+struct TransferDisplayItem: Identifiable, Sendable, Equatable {
+    enum Direction: String, Sendable, Equatable {
+        case upload
+        case download
+    }
+
+    let id: String
+    let direction: Direction
+    let name: String
+    let isFolder: Bool
+    let subtitle: String
+    let progress: Double?
+    let isActive: Bool
+    let isFailed: Bool
+    let updatedAt: Date
+}
+
+/// Popover grouping (spec 6.5): only non-empty sections render, always in
+/// this order.
+enum TransferDisplaySectionKind: String, Sendable, Equatable, CaseIterable {
+    case active = "Active"
+    case failed = "Failed"
+    case completed = "Completed"
+}
+
+struct TransferDisplaySection: Identifiable, Sendable, Equatable {
+    let kind: TransferDisplaySectionKind
+    let items: [TransferDisplayItem]
+
+    var id: String { kind.rawValue }
+    var title: String { kind.rawValue }
+}
+
+enum TransferDisplay {
+    // MARK: - item mapping
+
+    /// Upload job → display row. `destinationName` is the breadcrumb
+    /// captured at enqueue time ("My Files › Projects"); nil for jobs
+    /// restored from disk — the subtitle degrades gracefully.
+    static func item(for job: TransferJob, destinationName: String?) -> TransferDisplayItem {
+        TransferDisplayItem(
+            id: job.id.uuidString,
+            direction: .upload,
+            name: job.fileName,
+            isFolder: false, // folder uploads land as one job per file
+            subtitle: uploadSubtitle(job, destination: destinationName),
+            progress: uploadProgress(job),
+            isActive: section(of: job) == .active,
+            isFailed: job.state == .failed,
+            updatedAt: job.updatedAt
+        )
+    }
+
+    /// Download record → display row. Folder downloads get " (N files)"
+    /// appended to the NAME (spec 6.5 wireframe); the subtitle stays
+    /// "Downloaded to <destination>".
+    static func item(for record: DownloadRecord) -> TransferDisplayItem {
+        TransferDisplayItem(
+            id: record.id.uuidString,
+            direction: .download,
+            name: downloadName(record),
+            isFolder: record.kind == .folder,
+            subtitle: downloadSubtitle(record),
+            progress: record.state == .downloading ? record.progress : nil,
+            isActive: record.state == .downloading,
+            isFailed: record.state == .failed,
+            updatedAt: record.updatedAt
+        )
+    }
+
+    // MARK: - sections
+
+    /// Uploads + downloads merged into Active / Failed / Completed, each
+    /// sorted `updatedAt` descending (spec 6.5). `destinationName` resolves
+    /// a job's breadcrumb — pass `UploadCoordinator.destinationNames` via a
+    /// closure so this file never touches Features types.
+    static func sections(
+        uploads: [TransferJob],
+        downloads: [DownloadRecord],
+        destinationName: (UUID) -> String? = { _ in nil }
+    ) -> [TransferDisplaySection] {
+        var grouped: [TransferDisplaySectionKind: [TransferDisplayItem]] = [:]
+        for job in uploads {
+            grouped[section(of: job), default: []]
+                .append(item(for: job, destinationName: destinationName(job.id)))
+        }
+        for record in downloads {
+            grouped[section(of: record), default: []]
+                .append(item(for: record))
+        }
+        return TransferDisplaySectionKind.allCases.compactMap { kind in
+            guard var items = grouped[kind], !items.isEmpty else { return nil }
+            items.sort { $0.updatedAt > $1.updatedAt }
+            return TransferDisplaySection(kind: kind, items: items)
+        }
+    }
+
+    static func section(of job: TransferJob) -> TransferDisplaySectionKind {
+        switch job.state {
+        case .queued, .uploading, .paused: return .active
+        case .failed, .cancelled: return .failed
+        case .done: return .completed
+        }
+    }
+
+    static func section(of record: DownloadRecord) -> TransferDisplaySectionKind {
+        switch record.state {
+        case .downloading: return .active
+        case .failed: return .failed
+        case .done: return .completed
+        }
+    }
+
+    /// Active-transfer count for the toolbar badge: queued, uploading,
+    /// paused and in-flight downloads.
+    static func activeCount(uploads: [TransferJob], downloads: [DownloadRecord]) -> Int {
+        uploads.filter { section(of: $0) == .active }.count
+            + downloads.filter { $0.state == .downloading }.count
+    }
+
+    // MARK: - subtitles
+
+    private static func uploadSubtitle(_ job: TransferJob, destination: String?) -> String {
+        switch job.state {
+        case .queued:
+            return "Waiting…"
+        case .uploading:
+            var text = "\(bytes(job.bytesDone)) of \(bytes(job.bytesTotal))"
+            if let destination, !destination.isEmpty {
+                text += " · to \(destination)"
+            }
+            return text
+        case .paused:
+            guard job.bytesTotal > 0 else { return "Paused" }
+            return "Paused · \(bytes(job.bytesDone)) of \(bytes(job.bytesTotal))"
+        case .done:
+            if let destination, !destination.isEmpty {
+                return "Uploaded to \(destination)"
+            }
+            return "Uploaded"
+        case .failed:
+            return UserFacingError.message(forMessage: job.errorMessage ?? "Upload failed")
+        case .cancelled:
+            return "Cancelled"
+        }
+    }
+
+    /// A progress bar shows only while bytes are visibly moving: uploading
+    /// always, paused only with partial progress (mirrors the legacy row).
+    private static func uploadProgress(_ job: TransferJob) -> Double? {
+        switch job.state {
+        case .uploading:
+            return job.progress
+        case .paused:
+            return job.bytesDone > 0 ? job.progress : nil
+        case .queued, .done, .failed, .cancelled:
+            return nil
+        }
+    }
+
+    private static func downloadName(_ record: DownloadRecord) -> String {
+        guard record.kind == .folder, record.fileCount > 0 else { return record.name }
+        let noun = record.fileCount == 1 ? "file" : "files"
+        return "\(record.name) (\(record.fileCount) \(noun))"
+    }
+
+    private static func downloadSubtitle(_ record: DownloadRecord) -> String {
+        switch record.state {
+        case .downloading:
+            if let progress = record.progress {
+                return "Downloading… \(Int((progress * 100).rounded()))%"
+            }
+            return record.kind == .folder ? "Downloading folder…" : "Downloading…"
+        case .done:
+            if let destination = record.destinationName, !destination.isEmpty {
+                return "Downloaded to \(destination)"
+            }
+            return "Downloaded"
+        case .failed:
+            // Store already maps errors via UserFacingError.message(for:);
+            // the message(forMessage:) pass upgrades any raw string too.
+            return UserFacingError.message(forMessage: record.errorMessage ?? "Download failed")
+        }
+    }
+
+    private static func bytes(_ n: Int64) -> String {
+        n.formatted(ByteCountFormatStyle(style: .file))
+    }
+}

@@ -77,6 +77,13 @@ final class TransferActivityStore {
         for id in removed { revealURLs.removeValue(forKey: id) }
     }
 
+    /// Removes one record — the row-level dismiss in the S3.2 popover
+    /// (failed rows, or a completed row the user clears individually).
+    func removeDownload(id: UUID) {
+        downloads.removeAll { $0.id == id }
+        revealURLs.removeValue(forKey: id)
+    }
+
     /// Post-operation consistency (S2.3): publish the parent linkIDs a
     /// remote mutation touched (folder create, trash, upload enqueue/done).
     /// Browsers keyed on `remoteChangedToken` call `markStale` — only the

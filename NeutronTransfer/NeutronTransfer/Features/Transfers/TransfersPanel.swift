@@ -1,0 +1,238 @@
+// Neutron Transfer — the transfers popover (F7 S3.2, spec 6.5).
+// 380×440: header ("Transfers" + ⋯ menu), then a List with Active /
+// Failed / Completed sections (only non-empty ones), uploads and downloads
+// merged newest-first via TransferDisplay. Pure inputs + closures so the
+// same view renders offline previews; TransfersToolbarButton wires it to
+// the session's UploadCoordinator + TransferActivityStore.
+import SwiftUI
+
+struct TransfersPanel: View {
+    /// Every operation the rows/menu can trigger, keyed by job/record UUID.
+    /// Defaults are no-ops so previews and partial wiring stay safe.
+    struct Handlers {
+        var pause: (UUID) -> Void = { _ in }
+        var resume: (UUID) -> Void = { _ in }
+        var cancel: (UUID) -> Void = { _ in }
+        var retry: (UUID) -> Void = { _ in }
+        var removeUpload: (UUID) -> Void = { _ in }
+        var removeDownload: (UUID) -> Void = { _ in }
+        var revealDownload: (UUID) -> Void = { _ in }
+        var pauseAll: () -> Void = {}
+        var retryAllFailed: () -> Void = {}
+        var clearFinished: () -> Void = {}
+    }
+
+    let uploads: [TransferJob]
+    let downloads: [DownloadRecord]
+    /// Job ID → "My Files › Projects" breadcrumb (UploadCoordinator).
+    let destinationNames: [UUID: String]
+    /// Download record ID → local file/folder URL for "Show in Finder".
+    let revealURLs: [UUID: URL]
+    /// Last intake failure, already user-facing (UploadCoordinator).
+    let lastError: String?
+    var handlers = Handlers()
+
+    private var sections: [TransferDisplaySection] {
+        TransferDisplay.sections(
+            uploads: uploads,
+            downloads: downloads,
+            destinationName: { destinationNames[$0] }
+        )
+    }
+
+    private var canPauseAll: Bool {
+        uploads.contains { $0.state == .queued || $0.state == .uploading }
+    }
+
+    private var hasFailedUploads: Bool {
+        uploads.contains { $0.state == .failed }
+    }
+
+    /// "Clear Finished" clears finished downloads AND removes done uploads.
+    private var hasFinished: Bool {
+        downloads.contains { $0.state != .downloading }
+            || uploads.contains { $0.state == .done }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            Divider()
+            content
+            if let lastError, !lastError.isEmpty {
+                Divider()
+                Text(lastError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+            }
+        }
+        .frame(width: 380, height: 440)
+    }
+
+    private var header: some View {
+        HStack {
+            Text("Transfers")
+                .font(.headline)
+            Spacer()
+            Menu {
+                Button("Pause All", action: handlers.pauseAll)
+                    .disabled(!canPauseAll)
+                Button("Retry Failed", action: handlers.retryAllFailed)
+                    .disabled(!hasFailedUploads)
+                Divider()
+                Button("Clear Finished", action: handlers.clearFinished)
+                    .disabled(!hasFinished)
+            } label: {
+                Label("Transfer Actions", systemImage: "ellipsis")
+                    .labelStyle(.iconOnly)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Transfer Actions")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if sections.isEmpty {
+            ContentUnavailableView(
+                "No Transfers",
+                systemImage: "arrow.up.arrow.down",
+                description: Text("Files you upload or download appear here.")
+            )
+        } else {
+            List {
+                ForEach(sections) { section in
+                    Section(section.title) {
+                        ForEach(section.items) { item in
+                            TransferRow(item: item, actions: actions(for: item))
+                        }
+                    }
+                }
+            }
+            .listStyle(.sidebar)
+        }
+    }
+
+    /// Per-state action set for a row — the same shape the retired queue
+    /// view's `actions(_:)` had. Downloads have no pause/cancel/retry API
+    /// (DownloadCoordinator is a sequential fire-and-report loop), so an
+    /// in-flight download shows only its bar, a done one gets "Show in
+    /// Finder" and a failed one can only be dismissed.
+    private func actions(for item: TransferDisplayItem) -> TransferRowActions {
+        guard let uuid = UUID(uuidString: item.id) else { return TransferRowActions() }
+        switch item.direction {
+        case .upload:
+            guard let job = uploads.first(where: { $0.id == uuid }) else {
+                return TransferRowActions()
+            }
+            switch job.state {
+            case .queued, .uploading:
+                return TransferRowActions(
+                    pause: { handlers.pause(uuid) },
+                    cancel: { handlers.cancel(uuid) }
+                )
+            case .paused:
+                return TransferRowActions(
+                    resume: { handlers.resume(uuid) },
+                    cancel: { handlers.cancel(uuid) }
+                )
+            case .failed, .cancelled:
+                return TransferRowActions(
+                    retry: { handlers.retry(uuid) },
+                    remove: { handlers.removeUpload(uuid) }
+                )
+            case .done:
+                return TransferRowActions(
+                    remove: { handlers.removeUpload(uuid) }
+                )
+            }
+        case .download:
+            guard let record = downloads.first(where: { $0.id == uuid }) else {
+                return TransferRowActions()
+            }
+            switch record.state {
+            case .downloading:
+                return TransferRowActions()
+            case .done:
+                guard revealURLs[uuid] != nil else { return TransferRowActions() }
+                return TransferRowActions(
+                    reveal: { handlers.revealDownload(uuid) }
+                )
+            case .failed:
+                return TransferRowActions(
+                    remove: { handlers.removeDownload(uuid) }
+                )
+            }
+        }
+    }
+}
+
+#if DEBUG
+#Preview("Empty — Light") {
+    TransfersPanel(
+        uploads: [], downloads: [], destinationNames: [:],
+        revealURLs: [:], lastError: nil
+    )
+    .preferredColorScheme(.light)
+}
+
+#Preview("Empty — Dark") {
+    TransfersPanel(
+        uploads: [], downloads: [], destinationNames: [:],
+        revealURLs: [:], lastError: nil
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Mixed — Light") {
+    TransfersPanel(
+        uploads: [PreviewFixtures.uploadJobs[0]],
+        downloads: PreviewFixtures.downloadRecords,
+        destinationNames: PreviewFixtures.uploadDestinationNames,
+        revealURLs: PreviewFixtures.downloadRevealURLs,
+        lastError: nil
+    )
+    .preferredColorScheme(.light)
+}
+
+#Preview("Mixed — Dark") {
+    TransfersPanel(
+        uploads: [PreviewFixtures.uploadJobs[0]],
+        downloads: PreviewFixtures.downloadRecords,
+        destinationNames: PreviewFixtures.uploadDestinationNames,
+        revealURLs: PreviewFixtures.downloadRevealURLs,
+        lastError: nil
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Failure — Light") {
+    TransfersPanel(
+        uploads: PreviewFixtures.uploadJobs,
+        downloads: PreviewFixtures.downloadRecords + [PreviewFixtures.failedDownload],
+        destinationNames: PreviewFixtures.uploadDestinationNames,
+        revealURLs: PreviewFixtures.downloadRevealURLs,
+        lastError: "big.iso: Upload preparation failed."
+    )
+    .preferredColorScheme(.light)
+}
+
+#Preview("Failure — Dark") {
+    TransfersPanel(
+        uploads: PreviewFixtures.uploadJobs,
+        downloads: PreviewFixtures.downloadRecords + [PreviewFixtures.failedDownload],
+        destinationNames: PreviewFixtures.uploadDestinationNames,
+        revealURLs: PreviewFixtures.downloadRevealURLs,
+        lastError: "big.iso: Upload preparation failed."
+    )
+    .preferredColorScheme(.dark)
+}
+#endif

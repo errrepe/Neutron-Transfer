@@ -86,6 +86,74 @@ enum PreviewFixtures {
         ),
     ]
 
+    // MARK: - Transfers (S3.2)
+
+    /// Upload jobs for the transfers panel: one mid-flight with a
+    /// destination breadcrumb, one failed. `init` always starts `.queued`,
+    /// so preview states are assigned after construction.
+    static let uploadJobs: [TransferJob] = {
+        var uploading = TransferJob(
+            fileName: "keynote-draft.mov",
+            relativePath: "keynote-draft.mov",
+            localPath: "/tmp/keynote-draft.mov",
+            shareID: "share-main",
+            parentLinkID: "link-main-root",
+            bytesTotal: 80_000_000
+        )
+        uploading.state = .uploading
+        uploading.bytesDone = 12_400_000
+
+        var failed = TransferJob(
+            fileName: "big.iso",
+            relativePath: "big.iso",
+            localPath: "/tmp/big.iso",
+            shareID: "share-main",
+            parentLinkID: "link-main-root",
+            bytesTotal: 4_200_000_000
+        )
+        failed.state = .failed
+        failed.errorMessage = "Network connection lost."
+        return [uploading, failed]
+    }()
+
+    /// Download records: one in flight, one completed folder, one done
+    /// file — exercises every popover section but Failed.
+    static let downloadRecords: [DownloadRecord] = [
+        DownloadRecord(
+            name: "Praia do Rosa.heic", kind: .file, state: .downloading,
+            destinationName: "Downloads", progress: 0.45
+        ),
+        DownloadRecord(
+            name: "Projects", kind: .folder, state: .done,
+            fileCount: 14, destinationName: "Downloads"
+        ),
+        DownloadRecord(
+            name: "Invoice March.pdf", kind: .file, state: .done,
+            fileCount: 1, destinationName: "Downloads"
+        ),
+    ]
+
+    /// A failed download for the popover's error-state preview.
+    static let failedDownload = DownloadRecord(
+        name: "archive.zip", kind: .file, state: .failed,
+        destinationName: "Downloads",
+        errorMessage: "Network connection lost. Retry…"
+    )
+
+    /// Breadcrumb lookup matching `uploadJobs` (UploadCoordinator shape).
+    static var uploadDestinationNames: [UUID: String] {
+        Dictionary(uniqueKeysWithValues: uploadJobs.map { ($0.id, "My Files › Projects") })
+    }
+
+    /// Reveal targets for completed fixture downloads (memory-only paths,
+    /// never persisted — same rule as TransferActivityStore.revealURLs).
+    static var downloadRevealURLs: [UUID: URL] {
+        let done = downloadRecords.filter { $0.state == .done }
+        return Dictionary(uniqueKeysWithValues: done.map {
+            ($0.id, URL(fileURLWithPath: "/tmp", isDirectory: true))
+        })
+    }
+
     /// Signed-in session with the fixture roots + account injected.
     /// No network (queueStoreURL nil, phase assigned, never signIn()).
     @MainActor

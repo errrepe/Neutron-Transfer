@@ -1,6 +1,6 @@
 // Neutron Transfer — upload queue core (F4.4).
 // Offline-testable: Foundation only (no SwiftUI/SwiftData/DriveClient here).
-// Live wiring lives in DriveUploadAdapter.swift; UI in TransferQueueView.swift.
+// Live wiring lives in DriveUploadAdapter.swift; UI in Features/Transfers/.
 //
 // Persistence = plain JSON snapshot in Application Support (NOT SwiftData:
 // a queue actor owning one Codable snapshot written atomically has fewer

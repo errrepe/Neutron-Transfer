@@ -55,7 +55,10 @@ final class BrowserModel {
     /// through @Observable property access).
     var remoteChangedToken: Int { session.activity.remoteChangedToken }
 
-    private let session: AppSession
+    /// The session this browser belongs to — also re-injected into the
+    /// environment by BrowserContainerView so children (e.g. the S3.2
+    /// transfers button) see the same instance, previews included.
+    let session: AppSession
     /// DEBUG preview seam: when true, `load` is a no-op so seeded folder
     /// states render offline (see `BrowserModel.preview` below).
     private var previewStubbed = false

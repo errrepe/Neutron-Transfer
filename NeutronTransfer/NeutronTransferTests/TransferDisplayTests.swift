@@ -1,0 +1,220 @@
+// Neutron Transfer — S3.2 transfers-popover mapping suite (Swift Testing).
+// Covers TransferJob/DownloadRecord → TransferDisplayItem subtitles,
+// section grouping, ordering and the badge count. Pure Core, no network.
+import Foundation
+import Testing
+
+@testable import NeutronTransfer
+
+@Suite("TransferDisplay")
+struct TransferDisplayTests {
+    /// Job factory: `init` always starts `.queued`, so callers mutate the
+    /// returned value into the state under test.
+    private func job(
+        state: TransferJobState,
+        fileName: String = "video.mov",
+        bytesDone: Int64 = 0,
+        bytesTotal: Int64 = 80_000_000,
+        errorMessage: String? = nil,
+        updatedAt: Date = Date(timeIntervalSince1970: 1_760_000_000)
+    ) -> TransferJob {
+        var j = TransferJob(
+            fileName: fileName,
+            relativePath: fileName,
+            localPath: "/tmp/\(fileName)",
+            shareID: "share-1",
+            parentLinkID: "link-parent",
+            bytesTotal: bytesTotal
+        )
+        j.state = state
+        j.bytesDone = bytesDone
+        j.errorMessage = errorMessage
+        j.updatedAt = updatedAt
+        return j
+    }
+
+    private func record(
+        state: DownloadState,
+        name: String = "Projects",
+        kind: DownloadKind = .file,
+        fileCount: Int = 0,
+        destinationName: String? = "Downloads",
+        progress: Double? = nil,
+        errorMessage: String? = nil,
+        updatedAt: Date = Date(timeIntervalSince1970: 1_760_000_000)
+    ) -> DownloadRecord {
+        DownloadRecord(
+            name: name, kind: kind, state: state, fileCount: fileCount,
+            destinationName: destinationName, progress: progress,
+            errorMessage: errorMessage, updatedAt: updatedAt
+        )
+    }
+
+    // MARK: - upload subtitles
+
+    @Test func uploadingSubtitleShowsBytesAndDestination() {
+        let j = job(state: .uploading, bytesDone: 40_000_000)
+        let item = TransferDisplay.item(for: j, destinationName: "My Files › Projects")
+        #expect(item.direction == .upload)
+        #expect(item.subtitle.contains("of"))
+        #expect(item.subtitle.hasSuffix("· to My Files › Projects"))
+        #expect(item.isActive)
+        #expect(!item.isFailed)
+        #expect(item.progress == 0.5)
+    }
+
+    @Test func uploadingSubtitleWithoutDestinationOmitsSuffix() {
+        let j = job(state: .uploading, bytesDone: 40_000_000)
+        let item = TransferDisplay.item(for: j, destinationName: nil)
+        #expect(!item.subtitle.contains("· to"))
+    }
+
+    @Test func queuedUploadWaits() {
+        let item = TransferDisplay.item(for: job(state: .queued), destinationName: "My Files")
+        #expect(item.subtitle == "Waiting…")
+        #expect(item.isActive)
+        #expect(item.progress == nil) // no bar for a queued row
+    }
+
+    @Test func pausedUploadShowsBytes() {
+        let item = TransferDisplay.item(
+            for: job(state: .paused, bytesDone: 40_000_000),
+            destinationName: nil
+        )
+        #expect(item.subtitle.hasPrefix("Paused ·"))
+        #expect(item.progress == 0.5) // partial progress bar survives the pause
+        #expect(item.isActive)
+    }
+
+    @Test func pausedUploadAtZeroHidesBar() {
+        let item = TransferDisplay.item(for: job(state: .paused), destinationName: nil)
+        #expect(item.progress == nil)
+    }
+
+    @Test func doneUploadNamesDestination() {
+        let item = TransferDisplay.item(
+            for: job(state: .done, bytesDone: 80_000_000),
+            destinationName: "My Files › Projects"
+        )
+        #expect(item.subtitle == "Uploaded to My Files › Projects")
+        #expect(!item.isActive && !item.isFailed)
+        #expect(item.progress == nil)
+    }
+
+    @Test func doneUploadWithoutDestination() {
+        let item = TransferDisplay.item(for: job(state: .done), destinationName: nil)
+        #expect(item.subtitle == "Uploaded")
+    }
+
+    @Test func failedUploadMapsMessage() {
+        let item = TransferDisplay.item(
+            for: job(state: .failed, errorMessage: "api 500: oops"),
+            destinationName: nil
+        )
+        #expect(item.isFailed)
+        #expect(!item.isActive)
+        // Raw API strings are upgraded to actionable guidance.
+        #expect(item.subtitle.contains("server error"))
+    }
+
+    @Test func cancelledUploadReadsCancelledNotRed() {
+        let item = TransferDisplay.item(for: job(state: .cancelled), destinationName: nil)
+        #expect(item.subtitle == "Cancelled")
+        #expect(!item.isFailed) // cancelled is user-initiated: neutral, not red
+        #expect(TransferDisplay.section(of: job(state: .cancelled)) == .failed)
+    }
+
+    // MARK: - download rows
+
+    @Test func downloadingSubtitleShowsPercent() {
+        let item = TransferDisplay.item(for: record(state: .downloading, progress: 0.45))
+        #expect(item.subtitle == "Downloading… 45%")
+        #expect(item.isActive)
+        #expect(item.progress == 0.45)
+    }
+
+    @Test func downloadingFolderWithoutProgress() {
+        let item = TransferDisplay.item(
+            for: record(state: .downloading, kind: .folder, progress: nil)
+        )
+        #expect(item.subtitle == "Downloading folder…")
+        #expect(item.progress == nil)
+    }
+
+    @Test func doneFolderDownloadGetsFileCountInName() {
+        let item = TransferDisplay.item(
+            for: record(state: .done, kind: .folder, fileCount: 14)
+        )
+        #expect(item.name == "Projects (14 files)")
+        #expect(item.subtitle == "Downloaded to Downloads")
+        #expect(item.isFolder)
+        #expect(!item.isActive && !item.isFailed)
+    }
+
+    @Test func doneFileDownloadKeepsName() {
+        let item = TransferDisplay.item(for: record(state: .done, name: "big.iso"))
+        #expect(item.name == "big.iso")
+        #expect(!item.isFolder)
+    }
+
+    @Test func failedDownloadSurfacesError() {
+        let item = TransferDisplay.item(
+            for: record(state: .failed, errorMessage: "Network connection lost.")
+        )
+        #expect(item.subtitle == "Network connection lost.")
+        #expect(item.isFailed && !item.isActive)
+    }
+
+    // MARK: - sections + ordering
+
+    @Test func sectionsGroupAndSortByUpdatedAtDesc() {
+        let older = Date(timeIntervalSince1970: 1_760_000_000)
+        let newer = Date(timeIntervalSince1970: 1_760_000_100)
+        let uploads = [
+            job(state: .uploading, fileName: "old-up.mov", updatedAt: older),
+            job(state: .queued, fileName: "new-up.mov", updatedAt: newer),
+            job(state: .done, fileName: "done.mov", updatedAt: newer),
+        ]
+        let downloads = [
+            record(state: .downloading, name: "mid-dl.bin", updatedAt: older
+                .addingTimeInterval(50)),
+            record(state: .failed, name: "bad.iso", errorMessage: "x",
+                   updatedAt: newer),
+        ]
+        let sections = TransferDisplay.sections(uploads: uploads, downloads: downloads)
+
+        #expect(sections.map(\.kind) == [.active, .failed, .completed])
+        let active = sections[0].items
+        #expect(active.map(\.name) == ["new-up.mov", "mid-dl.bin", "old-up.mov"])
+        #expect(sections[1].items.map(\.name) == ["bad.iso"])
+        #expect(sections[2].items.map(\.name) == ["done.mov"])
+    }
+
+    @Test func emptyKindsDropTheirSection() {
+        let sections = TransferDisplay.sections(
+            uploads: [job(state: .done)],
+            downloads: []
+        )
+        #expect(sections.map(\.kind) == [.completed])
+    }
+
+    @Test func destinationLookupFeedsSubtitles() {
+        let j = job(state: .uploading, bytesDone: 1)
+        let sections = TransferDisplay.sections(
+            uploads: [j], downloads: [],
+            destinationName: { id in id == j.id ? "My Files" : nil }
+        )
+        #expect(sections.first?.items.first?.subtitle.contains("to My Files") == true)
+    }
+
+    @Test func activeCountSpansUploadsAndDownloads() {
+        let uploads = [
+            job(state: .uploading), job(state: .paused),
+            job(state: .done), job(state: .failed),
+        ]
+        let downloads = [
+            record(state: .downloading), record(state: .done),
+        ]
+        #expect(TransferDisplay.activeCount(uploads: uploads, downloads: downloads) == 3)
+    }
+}

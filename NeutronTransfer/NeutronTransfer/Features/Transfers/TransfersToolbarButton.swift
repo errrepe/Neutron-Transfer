@@ -1,0 +1,120 @@
+// Neutron Transfer — toolbar entry to the transfers popover (F7 S3.2).
+// Lives in the FolderView toolbar (.primaryAction, trailing). The badge
+// counts in-flight transfers; the popover binds to
+// `TransferActivityStore.presentTransfers`, which UploadCoordinator also
+// flips on intake so the panel opens on the first upload.
+// Badge note: `.badge(_:)` compiles on macOS but only renders inside
+// TabView/list rows — it is a no-op on an NSToolbarItem-backed button —
+// so the count rides on a small capsule overlay instead.
+import AppKit
+import SwiftUI
+
+struct TransfersToolbarButton: View {
+    @Environment(AppSession.self) private var session
+
+    private var activeCount: Int {
+        TransferDisplay.activeCount(
+            uploads: session.uploads?.jobs ?? [],
+            downloads: session.activity.downloads
+        )
+    }
+
+    var body: some View {
+        @Bindable var activity = session.activity
+        Button("Transfers", systemImage: "arrow.up.arrow.down") {
+            activity.presentTransfers.toggle()
+        }
+        .help("Transfers")
+        .accessibilityLabel(
+            activeCount > 0 ? "Transfers, \(activeCount) active" : "Transfers"
+        )
+        .overlay(alignment: .topTrailing) { badge }
+        .popover(isPresented: $activity.presentTransfers, arrowEdge: .bottom) {
+            panel
+        }
+    }
+
+    /// Active-count capsule. `monospacedDigit` keeps the capsule width
+    /// stable while the count changes.
+    @ViewBuilder
+    private var badge: some View {
+        if activeCount > 0 {
+            Text(activeCount, format: .number)
+                .font(.caption2)
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(.red, in: Capsule())
+                .offset(x: 6, y: -4)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var panel: TransfersPanel {
+        TransfersPanel(
+            uploads: session.uploads?.jobs ?? [],
+            downloads: session.activity.downloads,
+            destinationNames: session.uploads?.destinationNames ?? [:],
+            revealURLs: session.activity.revealURLs,
+            lastError: session.uploads?.lastError,
+            handlers: TransfersPanel.Handlers(
+                pause: { [session] id in
+                    Task { await session.uploads?.pause(id) }
+                },
+                resume: { [session] id in
+                    Task { await session.uploads?.resume(id) }
+                },
+                cancel: { [session] id in
+                    Task { await session.uploads?.cancel(id) }
+                },
+                retry: { [session] id in
+                    Task { await session.uploads?.relaunch(id) }
+                },
+                removeUpload: { [session] id in
+                    Task { await session.uploads?.remove(id) }
+                },
+                removeDownload: { [session] id in
+                    session.activity.removeDownload(id: id)
+                },
+                revealDownload: { [session] id in
+                    // revealURLs is memory-only: the URL exists for this
+                    // process only, never persisted — safe to hand to
+                    // NSWorkspace here.
+                    if let url = session.activity.revealURLs[id] {
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    }
+                },
+                pauseAll: { [session] in
+                    Task { await session.uploads?.pauseAll() }
+                },
+                retryAllFailed: { [session] in
+                    Task { await session.uploads?.relaunchAllFailed() }
+                },
+                clearFinished: { [session] in
+                    session.activity.clearFinished()
+                    Task {
+                        guard let uploads = session.uploads else { return }
+                        // Spec 6.5: finished = done uploads + cleared
+                        // download records. Failed uploads stay (Retry).
+                        for job in uploads.jobs where job.state == .done {
+                            await uploads.remove(job.id)
+                        }
+                    }
+                }
+            )
+        )
+    }
+}
+
+#if DEBUG
+#Preview("Toolbar Button") {
+    // Preview session has no UploadCoordinator — the popover then shows
+    // download fixtures only, which still exercises the panel path.
+    let session = PreviewFixtures.session()
+    session.activity.downloads = PreviewFixtures.downloadRecords
+    return TransfersToolbarButton()
+        .environment(session)
+        .padding(40)
+}
+#endif

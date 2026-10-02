@@ -2,13 +2,13 @@
 // NavigationSplitView: classified roots in the sidebar, BrowserContainerView
 // (Table + folder navigation) in the detail column. While roots load, a
 // spinner; on failure, a retryable unavailable view.
-// The "Legacy Transfers" toolbar sheet keeps upload access until S3.
+// S3.2: transfers UI moved to the FolderView toolbar popover
+// (TransfersToolbarButton) — the queue sheet is gone.
 import SwiftUI
 
 struct MainView: View {
     @Environment(AppSession.self) private var session
     @State private var selection: SidebarItem? = .myFiles
-    @State private var showTransfers = false
 
     var body: some View {
         Group {
@@ -27,18 +27,6 @@ struct MainView: View {
             }
         }
         .frame(minWidth: 800, minHeight: 500)
-        .sheet(isPresented: $showTransfers) {
-            // Same resolver fallback the legacy shell used: a fresh resolver
-            // over the shared DriveClient — empty caches, but safe.
-            TransferQueueView(
-                queue: session.queue, sessions: session.sessions,
-                drive: session.drive, addressKeys: session.addressKeys,
-                resolver: session.resolver ?? NodeKeyResolver(
-                    source: session.drive, addressKeys: session.addressKeys
-                ),
-                activity: session.activity
-            )
-        }
     }
 
     private func splitView(roots: DriveRoots) -> some View {
@@ -62,14 +50,6 @@ struct MainView: View {
                     "Select a Location",
                     systemImage: "sidebar.left"
                 )
-            }
-        }
-        .toolbar {
-            ToolbarItem {
-                Button("Legacy Transfers", systemImage: "arrow.up.arrow.down") {
-                    showTransfers = true
-                }
-                .help("Legacy Transfers")
             }
         }
     }
