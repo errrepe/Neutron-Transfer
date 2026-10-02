@@ -10,7 +10,11 @@ import AppKit
 import SwiftUI
 
 struct TransfersToolbarButton: View {
-    @Environment(AppSession.self) private var session
+    /// Passed in by FolderView — never read from the environment. This
+    /// button sits in a ToolbarItem of every pushed FolderView, where an
+    /// object injected outside the NavigationStack can be missing
+    /// (crash B1: EnvironmentValues assert on a background-hosted item).
+    let session: AppSession
 
     private var activeCount: Int {
         TransferDisplay.activeCount(
@@ -30,7 +34,11 @@ struct TransfersToolbarButton: View {
         )
         .overlay(alignment: .topTrailing) { badge }
         .popover(isPresented: $activity.presentTransfers, arrowEdge: .bottom) {
+            // TransfersPanel takes pure inputs today; the injection is a
+            // safety net for any future panel child that reads the
+            // environment — popover content is hosted off-hierarchy too.
             panel
+                .environment(session)
         }
     }
 
@@ -113,8 +121,7 @@ struct TransfersToolbarButton: View {
     // download fixtures only, which still exercises the panel path.
     let session = PreviewFixtures.session()
     session.activity.downloads = PreviewFixtures.downloadRecords
-    return TransfersToolbarButton()
-        .environment(session)
+    return TransfersToolbarButton(session: session)
         .padding(40)
 }
 #endif

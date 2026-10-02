@@ -14,7 +14,12 @@ import UniformTypeIdentifiers
 struct FolderView: View {
     let location: DriveLocation
 
-    @Environment(BrowserModel.self) private var model
+    /// Passed in by BrowserContainerView — never read from the environment.
+    /// A pushed FolderView lives in navigationDestination content, which an
+    /// object injected outside the NavigationStack does not reliably reach
+    /// (crash B1: EnvironmentValues assert). @Bindable keeps the $model.*
+    /// bindings the toolbar, sheet and dialogs use.
+    @Bindable var model: BrowserModel
     /// True while a file drag hovers the table — drives DropOverlay.
     @State private var isTargeted = false
 
@@ -22,8 +27,7 @@ struct FolderView: View {
     private var items: [DriveItem] { model.visibleItems(for: location) }
 
     var body: some View {
-        @Bindable var model = model
-        return tableWithUploadDrop
+        tableWithUploadDrop
             .safeAreaInset(edge: .top, spacing: 0) {
                 if model.root.kind == .photos {
                     Label("Photos is read-only in Neutron Transfer.", systemImage: "info.circle")
@@ -92,7 +96,9 @@ struct FolderView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     // S3.2: transfers popover — badge counts in-flight items.
-                    TransfersToolbarButton()
+                    // R2/B1: session by parameter — toolbar items of a
+                    // pushed FolderView are another environment blind spot.
+                    TransfersToolbarButton(session: model.session)
                 }
             }
             .sheet(isPresented: $model.showingNewFolder) {
@@ -141,7 +147,7 @@ struct FolderView: View {
     /// rebuilds the stack on root change), so the conditional is stable.
     @ViewBuilder
     private var tableWithUploadDrop: some View {
-        let table = FolderTable(items: items)
+        let table = FolderTable(items: items, model: model)
             .overlay { stateOverlay }
             .overlay { if isTargeted { DropOverlay(location: location) } }
         if model.root.allowsWrites {

@@ -13,10 +13,13 @@ struct FolderTable: View {
     /// sorted by BrowserModel.visibleItems(for:).
     let items: [DriveItem]
 
-    @Environment(BrowserModel.self) private var model
+    /// Passed in by FolderView — never read from the environment. A table
+    /// inside a pushed navigationDestination cannot count on an object
+    /// injected outside the NavigationStack (crash B1). @Bindable keeps
+    /// the $model.selection / $model.sortOrder Table bindings.
+    @Bindable var model: BrowserModel
 
     var body: some View {
-        @Bindable var model = model
         Table(items, selection: $model.selection, sortOrder: $model.sortOrder) {
             TableColumn("Name", value: \.name, comparator: .localizedStandard) { item in
                 HStack(spacing: 6) {

@@ -1,7 +1,12 @@
-// Neutron Transfer — per-root browser container (F7 S2.2).
+// Neutron Transfer — per-root browser container (F7 S2.2, R2 for B1).
 // One NavigationStack per root: the path is BrowserModel.path
-// (DriveLocation values), the filter field lives in the toolbar, and the
-// model is shared with FolderView/FolderTable via the environment.
+// (DriveLocation values) and the filter field lives in the toolbar.
+// FolderView/FolderTable receive the model by PARAMETER — destination
+// and toolbar content are hosted outside the normal subtree, where an
+// environment object injected around the stack can be missing (crash
+// B1). The .environment calls below stay as a safety net for any other
+// child, and are also repeated on the stack root + inside the
+// navigationDestination closure itself.
 // MainView gives each root its own instance with .id(root.id).
 import SwiftUI
 
@@ -15,9 +20,17 @@ struct BrowserContainerView: View {
     var body: some View {
         @Bindable var model = model
         NavigationStack(path: $model.path) {
-            FolderView(location: model.rootLocation)
+            FolderView(location: model.rootLocation, model: model)
+                // Safety net on the stack root (R2/B1): any future child
+                // that still reads the environment sees the objects.
+                .environment(model)
+                .environment(model.session)
                 .navigationDestination(for: DriveLocation.self) { location in
-                    FolderView(location: location)
+                    FolderView(location: location, model: model)
+                        // Same net inside the destination closure — this
+                        // content is hosted off-hierarchy by the stack.
+                        .environment(model)
+                        .environment(model.session)
                 }
         }
         .searchable(
