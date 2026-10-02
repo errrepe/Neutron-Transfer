@@ -1,146 +1,219 @@
 # ARCHITECTURE — Neutron Transfer
 
-> Status: alpha design. Stack: macOS SwiftUI native, Swift 6 strict concurrency.
+> Status: alpha. Native macOS 26 SwiftUI, Swift 6 strict concurrency.
+> Reflects the real tree after F7 (2026-10-02).
 
 ## 1. Goals
 
-- Upload arbitrário com drag-and-drop preservando estrutura.
-- Download para pasta escolhida via seletor do sistema.
-- Fila de transfers persistente com progresso / pausa / cancela / retry.
-- Interop com Proton Drive via endpoints oficiais apenas.
-- Isolamento cripto para sobreviver à migração quebrante fim 2026 / início 2027.
+- Arbitrary upload via drag-and-drop preserving folder structure.
+- Download to a user-chosen folder via the system picker.
+- Transfer queue with progress / pause / cancel / retry.
+- Interop with Proton Drive via official endpoints only.
+- Crypto isolated for the breaking migration expected end of 2026 / early 2027.
 
-## 2. Layering
-
-```
-App/
-  NeutronTransferApp.swift      — entry, DI root
-  ContentView / Navigation      — shell only, no logic
-
-Features/
-  Auth/                         — LoginView, TwoFAView, SessionViewModel
-  Browser/                      — Vault/Folder list, navigation
-  Transfers/                    — QueueView, TransferRow, pickers, drop target
-
-Core/
-  Session/  → SessionManager
-  Network/  → DriveClient
-  Crypto/   → SRP + KeyHierarchy + BlockCrypto (protocols isolados)
-  Upload/   → UploadEngine
-  Download/ → DownloadEngine
-  Store/    → TransferStore (SwiftData, sem segredos)
-```
-
-Regras:
-
-- `Features` nunca importam `URLSession` diretamente. Só via `DriveClient` / Engines.
-- `Core/Crypto` não conhece UI nem rede. Interfaces puras, injetáveis para troca na migração cripto.
-- `TransferStore` é a única fonte de verdade da fila.
-
-## 3. SessionManager (actor)
-
-Responsabilidades:
-
-- Guarda `AccessToken`, `RefreshToken`, `UID`, expiração em memória.
-- Refresh automático com single-flight (evita N refreshes concorrentes).
-- Detecta `401` / token expirado → refresh → retry uma vez.
-- Detecta HV `9001` → surface para UI (captcha / verificação humana), pausa fila.
-- Corrige clock skew via NTP (comparar `Date` servidor vs local, tolerância configurável).
-- Expõe `actor SessionManager: Sendable` com `func validAccessToken() async throws -> String`.
-
-Segredos (refresh token, saltedKeyPass, address/share/node seeds) ficam SÓ em
-memória (actors), nunca em disco / SwiftData / UserDefaults / logs. Sem Keychain
-(como o app oficial): re-login a cada launch.
-
-## 4. DriveClient
-
-- Wrapper fino sobre `URLSession`, `Sendable`, `async/await`.
-- Base URL oficial apenas. Sem endpoint custom / scraping.
-- Header obrigatório em toda chamada:
-  `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha`
-- Serializa `Codable` requests/responses. Mapeia erros API (`Code`, `Error`, HV) para `DriveError` tipado.
-- Recebe `SessionManager` por injeção para auth header.
-- Retry de rede (timeout, 5xx, 429) com backoff exponencial + jitter — ver `TRANSFERS.md`.
-- Event-based sync: usa endpoint de eventos quando disponível; proibido polling fixo curto.
-
-## 5. Crypto — três blocos isolados
-
-### 5.1 SRP (`SRPClient`)
-
-- SRP-6a puro Swift (BigInt + SHA256 + HMAC).
-- Entrada: username, password, `info` de `POST /auth/v4/info` (version, modulus, serverEphemeral, salt).
-- Saída: `clientEphemeral`, `clientProof`. Sem atalho, sem lib externa opaca.
-- Testável com vetores de `go-proton-api` / `rclone`.
-
-### 5.2 KeyHierarchy (`KeyUnlocker`)
-
-Ordem de unlock:
+## 2. Real tree
 
 ```
-User key (key password / passphrase)
-  → Address keys
-    → Share keys (vault root)
-      → Node keys (file/folder)
-        → Session keys (per-block / per-file content key)
+NeutronTransfer/NeutronTransfer/
+  App/
+    NeutronTransferApp.swift    — entry point: Window + Settings + commands
+    AppSession.swift            — @MainActor @Observable DI root + auth lifecycle
+    RootView.swift              — login ↔ main switch by session phase
+    AppCommands.swift           — menubar commands (New Folder, Upload, Download…)
+  Core/                         — pure Foundation; compiled by root Package.swift
+    Crypto/
+      SRPClient.swift, BigUInt.swift, PasswordHash.swift, ExpandHash.swift,
+      ModulusDecoder.swift, UsernameCleaner.swift
+      BCrypt/                   — Proton bcrypt (EksBlowfish) for the key password
+      PGP/                      — packets, SED/SEIPD encrypt+decrypt, ECDH,
+                                  AES-KW, armor, detached sign/verify, NodeKeyGen
+    ProtonAPI/
+      APIClient.swift           — URLSession wrapper, auth calls, authDelete,
+                                  raw block download (octet-stream)
+      SessionManager.swift      — actor: session tokens, refresh single-flight,
+                                  signOut → DELETE /auth/v4
+      DriveClient.swift         — actor: Drive endpoints (shares/links/children,
+                                  files, folders, trash, revisions, block upload)
+      AuthModels.swift, DriveModels.swift,
+      KeyMaterial.swift         — key payloads + ProtonUser/addresses
+      FileUpload.swift          — draft + blocks + commit pipeline
+      FolderCreate.swift        — folder envelope + key material
+      ProtonAPIError.swift, AppVersion.swift
+    Security/
+      KeyringCache.swift        — actor: user/address key unlock, memory only
+      DecryptChain.swift        — Share→Node→Session decrypt chain
+      NodeKeyResolver.swift     — actor: single-flight key resolution under any
+                                  remote folder; reset() wipes everything
+    Drive/                      — pure models + listing
+      DriveRoot.swift           — root classification (My Files/Photos/Computers)
+      DriveItem.swift, DriveItemOrdering.swift, DriveLocation.swift,
+      DriveFormatting.swift, ShareKind.swift, FolderNameValidator.swift
+      DriveListing.swift        — actor: children(of:) → [DriveItem]; name
+                                  decryption runs off-main via resolver
+    Transfers/
+      TransferQueue.swift       — actor: upload queue, JSON snapshot persistence
+      LocalTreeScan.swift       — recursive intake (detached task)
+      DriveUploadAdapter.swift, DriveDownloadAdapter.swift — live bridges
+      FileDownload.swift        — verify + reassemble + atomic write
+      DownloadRecord.swift, TransferDisplay.swift, UserFacingError.swift,
+      PanelIntake.swift
+  Features/
+    Auth/       LoginView, TwoFactorView, UnlockingView
+    Shell/      MainView, SidebarView (+ SidebarItem), StorageFooterView
+    Browser/    BrowserModel, BrowserContainerView (NavigationStack per root),
+                FolderView, FolderTable, FileIcon, NewFolderSheet,
+                FolderOperations (create/trash), DropOverlay
+    Transfers/  TransferActivityStore, UploadCoordinator, DownloadCoordinator,
+                TransfersToolbarButton, TransfersPanel, TransferRow
+    Settings/   SettingsView
+    Shared/     Panels (async NSOpenPanel)
+    Preview/    PreviewFixtures (#if DEBUG)
+NeutronTransfer/NeutronTransferTests/   — Swift Testing suite (171 tests)
 ```
 
-- Cada nível descriptografa o próximo. Falha em qualquer nível = erro tipado, nunca crash, nunca log de chave.
-- Chaves desembrulhadas vivem em memória o mínimo necessário, `SecureBytes` com `memset` no `deinit` onde viável.
+Rules:
 
-### 5.3 BlockCrypto (`BlockEncryptor` / `BlockDecryptor`)
+- `Features` never touch `URLSession` — only `DriveClient` / coordinators / engines.
+- `Core` imports Foundation only — no SwiftUI, no AppKit. Testable via SPM.
+- `Core/Crypto` knows nothing about UI or network; interfaces stay injectable
+  for the crypto migration.
+- `AppSession` is the only DI root; views get it via `.environment`.
 
-- Upload: split em blocos → AES-CFB encrypt por bloco → SHA256 por bloco + MDC final → upload.
-- Download: fetch blocos → decrypt → verify SHA256/MDC → escreve.
-- Tamanho de bloco e formato versionados em `struct BlockFormatVersion` para suportar migração 2026/2027 sem reescrever engines.
+## 3. AppSession (@MainActor DI root)
 
-### 5.4 MessageCrypto (F4.1, offline-verified)
+One instance owns the session lifetime:
 
-- Encrypt mirror of the F3b decrypt path: `ECDHEncrypt` (PKESK v3, algo 18)
-  + `SEDEncrypt` (tag 9 resync / tag 18 v1 + MDC) + `LiteralPacket` (tag 11)
-  + `MessageEncrypt.encrypt` → armored output via `Armor.encode` (CRC24).
-- `MessageEncrypt.encryptName` encrypts link names to the PARENT keyring
-  (root name <- share key, child name <- parent node key), mirroring
-  `DecryptChain.decryptName`. Folder-creation live wiring is F4.2.
-- Proven offline: 22-vector suite + GnuPG 2.5 interop (our tag-18 message
-  decrypts cleanly; tag-9 plaintext byte-exact, gated only by GnuPG's MDC
-  enforcement policy).
+```
+AppSession
+ ├─ sessions: SessionManager (actor)   — tokens, refresh, DELETE /auth/v4
+ ├─ keyrings: KeyringCache (actor)     — user/address unlock, memory only
+ ├─ drive: DriveClient (actor)         — THE one client instance
+ ├─ resolver: NodeKeyResolver? (actor) — created post-unlock, reset+dropped on sign-out
+ ├─ listing: DriveListing? (actor)     — drive + resolver glue
+ ├─ queue: TransferQueue (actor)       — created at init, JSON-persisted
+ ├─ activity: TransferActivityStore (@MainActor @Observable)
+ ├─ uploads / downloads / folderOps    — coordinators created post-unlock
+ ├─ roots: DriveRoots?                 — My Files / Photos / Computers
+ └─ account: Account?                  — email, display name, quota
+```
 
-## 6. UploadEngine
+The password lives as `Data` only between `signIn` and the post-2FA unlock
+(`pendingPassword`), and its buffer is zeroed on every exit path
+(`clearPendingPassword` — `resetBytes` before the reference drops).
 
-Ver detalhe em `TRANSFERS.md`. Resumo:
+Sign-out order: pause queue + detach uploader → `resolver.reset()` → drop
+resolver/listing/coordinators → `sessions.signOut()` (best-effort
+`DELETE /auth/v4` then local clear) → `keyrings.lock()` → wipe UI state.
 
-- Input: `NSItemProvider` de `onDrop` + `FileManager.enumerator` recursivo.
-- Fase 1: coleta + ordenação topológica (pastas-pai antes de filhas).
-- Fase 2: cria pastas remotas, memoiza `localPath → nodeID`.
-- Fase 3: arquivos em `TaskGroup` limitado (4–8), cada arquivo = chunking + encrypt + upload + commit.
-- Reporta progresso por bytes via `AsyncStream` / observation.
+## 4. NodeKeyResolver (actor)
 
-## 7. DownloadEngine
+Single point of key resolution for share/node material under ANY remote
+folder. Single-flight: concurrent requests for the same node share one
+in-flight task (cleaned via `defer`). Memory only; `reset()` wipes all
+cached seeds. Used by `DriveListing` (name decryption), both transfer
+adapters and `FolderOperations`.
 
-- Input: lista de nodes + destino `URL` de `NSOpenPanel` (directory mode).
-- Espelha árvore localmente antes de baixar bytes (cria diretórios).
-- Blocos em paralelo limitado, decrypt + verify, escrita atômica (`.part` → rename).
-- Resume via manifesto de blocos completos se retomado.
+## 5. DriveListing (actor)
 
-## 8. TransferStore (SwiftData, sem segredos)
+`children(of: location) -> [DriveItem]` — fetches links/children, resolves
+node keys via the resolver, decrypts names OFF the main thread, returns
+sorted pure-Swift models for the `Table`. Also classifies roots
+(`roots() -> DriveRoots`).
 
-- `TransferJob`: id, type (upload/download), remotePath, localPath, state (queued/running/paused/failed/done), bytesTotal/bytesDone, errorCode, retryCount.
-- `TransferBlock`: jobID, index, hash, size, state — permite resume e verify.
-- Persistência imediata a cada transição de estado (crash-safe).
-- Nenhum segredo persistido: tokens vivem no `SessionManager`, seeds no
-  `KeyringCache` (memória). Re-login repõe tudo.
+## 6. TransferQueue — JSON, not SwiftData
 
-Modelo Swift 6: `@Model actor`-safe, `Sendable` DTOs para UI.
+The upload queue is an actor owning a `Codable` snapshot persisted
+atomically to `Application Support/NeutronTransfer/transfer-queue.json`.
+Rationale: an actor + snapshot has fewer failure modes than a `@Model`
+graph + `ModelContext`. The snapshot holds paths/IDs/progress only — never
+secrets (enforced by `snapshotHoldsNoSecrets`). `uploading` → `queued` on
+load. Concurrency: 3 parallel upload slots, sequential blocks per job,
+backoff `min(60s, 1s·2^(n-1)) + jitter`, HV 9001 → `pauseAll()`.
 
-## 9. Concorrência
+Downloads run through a dedicated `DriveDownloadAdapter` + lightweight
+`DownloadRecord`s reported to `TransferActivityStore` (in-memory history,
+no persistence) — uploads and downloads appear together in the Transfers
+popover.
 
-- `TaskGroup` com `maxConcurrent = 4...8` (adaptativo: reduz em 429/5xx, aumenta em rede idle).
-- Cancelamento cooperativo: `Task.checkCancellation()` por bloco.
-- Pausa: token por job, não cancela Task — suspende emissão de próximos blocos.
-- UI observa via `@Observable` view-models, nunca `Task` em `View.body`.
+## 7. Crypto — three isolated blocks
 
-## 10. Testabilidade
+### 7.1 SRP (`SRPClient`)
 
-- `DriveClientProtocol`, `SRPClientProtocol`, `KeyUnlockerProtocol`, `BlockCryptoProtocol`, `TransferStoreProtocol` — mocks em testes.
-- Spike SRP validado contra vetores reais antes de qualquer UI (ver `ROADMAP.md` F2).
-- Nenhum teste integra rede real por padrão; gravações (cassette) se necessário.
+SRP-6a pure Swift (BigUInt + SHA256 + HMAC). `POST /auth/v4/info` →
+`clientEphemeral`/`clientProof` → `POST /auth/v4`. Validated against
+`go-proton-api`/`rclone` vectors + live login.
+
+### 7.2 KeyHierarchy (`KeyringCache` / `DecryptChain`)
+
+```
+User key (bcrypt key password)
+  → Address keys → Share keys → Node keys → Session keys (per block/file)
+```
+
+Each level decrypts the next; failure at any level is a typed error, never
+a crash, never a logged key.
+
+### 7.3 MessageCrypto + BlockCrypto
+
+- Decrypt: `MessageDecrypt` (PKESK v3/ECDH) + `SEDDecrypt` (tag 9 resync /
+  tag 18 v1 + MDC) + fingerprints — verified against RFC vectors + GnuPG
+  interop.
+- Encrypt (upload mirror): `ECDHEncrypt` + `SEDEncrypt` + `LiteralPacket`
+  + `Armor`; `MessageEncrypt.encryptSigned` for names, `DetachedSign` for
+  passphrases/blocks. Live-verified signature conventions (notation salt,
+  issuer-fingerprint, OPS nested=0x01).
+- Block format: SED tag-18 packets, 4 MiB default (`FileUpload.defaultBlockSize`).
+  Block `Hash` = base64(SHA-256 of the CIPHERTEXT block) — live-proven.
+
+## 8. Upload / download engines
+
+See `docs/TRANSFERS.md` for the full wire protocol. Summary:
+
+- **Upload:** intake (drop/panel) → `LocalTreeScan` (NFC relatives,
+  topological order) → `ensureFolder` per directory (memoized) →
+  `DriveClient.uploadFile` (draft → `POST /drive/blocks` → multipart to the
+  storage host → commit). Blocks parallel per file deferred — per-job is
+  sequential today. Whole files are buffered in memory (backlog B1).
+  **Server gate:** `POST /drive/blocks` enforces an appversion allowlist —
+  our honest header gets 2000; uploads stay disabled in this alpha (no
+  spoofing — TRANSFERS.md §9).
+- **Download:** `NSOpenPanel` destination → per file: unlock node →
+  `openContentKey` → revision → blocks in a sliding-window TaskGroup
+  (default 4) → SHA-256 verify per block BEFORE decrypt (fail-closed) →
+  `reassemble` → atomic `*.neutron-part` → rename → `uniqueDestination`
+  (`nome (1).ext`). Folders recurse via `downloadTree`.
+
+## 9. Concurrency
+
+- All CPU/network work lives in actors (`SessionManager`, `KeyringCache`,
+  `DriveClient`, `NodeKeyResolver`, `DriveListing`, `TransferQueue`,
+  adapters). No `@MainActor` in `Core`.
+- `LocalTreeScan` runs in `Task.detached`; UI observes `@Observable`
+  view-models; no `Task` bodies in `View.body` except calls into objects
+  that outlive the view.
+- Cooperative cancellation per block; pause suspends job emission without
+  aborting in-flight bytes.
+
+## 10. Network rules (third-party compliance)
+
+- Official endpoints only; base URL `https://mail.proton.me/api`; storage
+  host taken from `BareURL` at runtime (never hardcoded).
+- Honest header on EVERY call (API + storage):
+  `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha`.
+- No polling loops; event-based sync is on the backlog (B3) — until then
+  listings refresh on demand and after local operations via
+  `activity.remoteChanged(parentLinkIDs:)` → targeted `BrowserModel` reload.
+- Retry: exponential backoff + jitter; `429`/`5xx`/`URLError` transient,
+  everything else permanent; HV 9001 pauses the queue and surfaces to UI.
+- Errors reaching the UI always pass through `UserFacingError` — actionable
+  one-liners, no raw dumps.
+
+## 11. Testability
+
+- Root `Package.swift` compiles `Core/` as module `NeutronTransfer` +
+  `NeutronTransferTests` — `swift test` runs the full suite without Xcode
+  (171 tests: crypto vectors, queue, download, models, resolver, UI helpers).
+- Protocols for mocks: `TransferUploader`, `RemoteFolderCreator`, sleeper
+  injection for backoff tests, `Data(contentsOf:)` seams via adapters.
+- No test touches the network; live verification runs via separate probes
+  with credentials in env only (see `docs/DEVLOG.md`).

@@ -1,63 +1,79 @@
 # CONTRIBUTING — Neutron Transfer
 
-## 1. Princípios
+## 1. Principles
 
-- Nativo macOS SwiftUI, Swift 6 strict concurrency. Sem warning novo.
-- Endpoints oficiais apenas + header `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha`.
-- Sem logos Proton, sem claim de suporte oficial. Manter disclaimer third-party.
-- Docs antes de código em mudança arquitetural (atualizar `docs/` + ADR se decisão).
+- Native macOS SwiftUI, Swift 6 strict concurrency. No new warnings.
+- Official endpoints only + header
+  `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha` on every call.
+- No Proton logos, no claim of official support. Keep the third-party
+  disclaimer wherever credentials are requested.
+- Docs before code on architectural changes (update `docs/` + an ADR if it
+  is a decision).
 
-## 2. Estilo Swift
+## 2. Swift style
 
-- `swiftformat` mental: 2 espaços? Não — padrão Xcode (tabs exibidos como 4, indent real do toolchain). Siga o arquivo vizinho.
-- `Sendable`, `actor` onde há estado compartilhado. Nenhum `try!` / `fatalError` em path de produção (só em `precondition` de invariante impossível).
-- Nomes: `SessionManager`, `DriveClient`, `UploadEngine`, `DownloadEngine`, `TransferStore`. Protocolos com sufixo `Protocol` para mocks.
-- UI: Views magras, lógica em view-models `@Observable`. Nada de rede em `View.body`.
+- Follow the neighboring file's indentation (Xcode defaults).
+- `Sendable`, `actor` wherever state is shared. No `try!` / `fatalError`
+  on production paths (only in `precondition` for impossible invariants).
+- Naming: `SessionManager`, `DriveClient`, `UploadEngine`,
+  `DownloadEngine`, `TransferStore`-style. Protocols used for mocking get
+  descriptive names.
+- UI: thin views, logic in `@Observable` view-models. No networking in
+  `View.body`.
 
-## 3. Workflow Xcode MCP (obrigatório)
+## 3. Issues / PRs
 
-- Usar sempre o MCP do Xcode para projetos Swift: `XcodeRead`, `BuildProject`, `RunSomeTests`, `RenderPreview`, etc.
-- Descobrir targets/schemes com as tools de listagem antes de compilar.
-- Se erro `db lock` / DerivedData: **sempre** apontar para SSD externo:
-  `/Volumes/SSD 4TB/DEV/DerivedData`
-  Nunca apontar DerivedData para o SSD interno do Mac.
-- **Sem builds concorrentes:** se há build rodando em fundo, esperar antes de lançar outra.
-- Não deixar processos pendurados (`StopProject` ao terminar verificação em device/sim).
-- Não criar projeto via linha de comando se MCP oferecer caminho — preferir MCP.
+- Open an issue before a large PR. Reference the phase in
+  `docs/ROADMAP.md`.
+- Small PRs, one topic each, including: what, why, how it was tested
+  (build + `swift test`), docs updated.
+- Any PR touching crypto or networking must cite the test vectors or the
+  test account used (never credentials).
 
-## 4. Shell — prefixo `rtk`
+## 4. Tests
 
-- Todo comando shell deve ser prefixado com `rtk` (Rust Token Killer proxy).
-- Exemplos: `rtk git status`, `rtk swift test`, `rtk ls`.
-- Meta: `rtk gain`, `rtk gain --history`.
+- Offline suite `NeutronTransferTests` (Swift Testing): RFC vectors
+  (AES-KW §4.1), integers vs Python, bcrypt vs the reference C
+  implementation, S2K/KDF/ECDH synthetic interop, Ed25519 roundtrip,
+  fingerprints. No network, no secrets — always safe to run.
+- Local loop: `swift test` at the **repo root**. The root `Package.swift`
+  compiles `NeutronTransfer/NeutronTransfer/Core/` as module
+  `NeutronTransfer` plus the `NeutronTransferTests/` suite — no Xcode, no
+  scheme.
+- The `NeutronTransferTests` target in the `.xcodeproj` is not hosted by
+  the app (no `TEST_HOST`), so `@testable import` does not link under
+  Xcode — `swift test` is the canonical path for the offline suite (the
+  shared `NeutronTransfer` scheme deliberately lists no testables).
 
-## 5. CI / Git
+## 5. Git
 
-- **Desconsidere CI no GitHub.** Sem workflows, sem gates.
-- Não commitar sem pedido explícito. Não push sem pedido.
-- Nunca commitar segredos, tokens, dumps de sessão, `.sqlite`, `DerivedData`, `.build`.
+- No CI — there are no GitHub workflows or gates.
+- Do not commit unless explicitly asked. Do not push unless asked.
+- Never commit secrets, tokens, session dumps, `.sqlite`, `DerivedData`,
+  `.build`.
 
-## 6. Issues / PRs
+## Maintainer setup
 
-- Abrir issue antes de PR grande. Referenciar fase do `docs/ROADMAP.md` (F1–F6).
-- PR pequeno, um tópico, com: o quê, por quê, como testado (build + teste via MCP), docs atualizados.
-- Todo PR que toca crypto/rede deve citar vetores ou conta teste usada (sem credenciais).
+Notes specific to this maintainer's machine and workflow — not required to
+contribute.
 
-## 7. Testes
-
-- Suite offline `NeutronTransferTests/CryptoVectorsTests.swift` (Swift Testing):
-  vetores RFC (AES-KW §4.1), inteiros vs Python, bcrypt vs implementação C de
-  referência, S2K/KDF/ECDH interop sintético, Ed25519 roundtrip, fingerprints.
-  Sem rede, sem segredos — seguro rodar sempre.
-- Loop local: `rtk swift test` na **raiz do repo**. O `Package.swift` da raiz
-  compila `NeutronTransfer/NeutronTransfer/Core/` como módulo `NeutronTransfer`
-  e a suite `NeutronTransferTests/` — sem Xcode, sem scheme.
-- O target `NeutronTransferTests` do `.xcodeproj` não tem host/`TEST_HOST`
-  fiado ao app, então `@testable import` não linka sob Xcode — `swift test`
-  é o caminho canônico da suite offline (o scheme compartilhado
-  `NeutronTransfer` não lista testables de propósito).
-- Snippets Xcode (`RunCodeSnippet`) têm watchdog de ~5s no host de preview:
-  para fluxos longos (SRP ~20s debug) usar o probe CLI com `-O`. Como não há
-  Keychain, cada verificação live exige login fresco — espaçar (rate-limit
-  2028) e agrupar tudo em UMA bateria por login. Nunca commitar credenciais
-  (só via env em memória).
+- **Shell prefix `rtk`:** every shell command is prefixed with `rtk`
+  (Rust Token Killer proxy). Examples: `rtk git status`, `rtk swift test`,
+  `rtk ls`. Meta: `rtk gain`, `rtk gain --history`.
+- **Xcode MCP workflow:** always drive Xcode through the MCP tools
+  (`XcodeRead`, `BuildProject`, `RunSomeTests`, `RenderPreview`, …).
+  Discover targets/schemes with the listing tools before building. Prefer
+  MCP over creating projects from the command line. Leave no hung
+  processes (`StopProject` after verifying on a device/simulator).
+- **DerivedData on the external SSD:** on any `db lock` / DerivedData
+  error, always point it to `/Volumes/SSD 4TB/DEV/DerivedData` — never the
+  Mac's internal SSD.
+- **No concurrent builds:** if a build is running in the background, wait
+  before launching another.
+- **Live verification spacing:** there is no Keychain, so every live check
+  needs a fresh login — space SRP logins ~11 minutes apart (rate-limit
+  2028) and batch everything into ONE battery per login. Credentials only
+  via env (`NT_USER`/`NT_PASS`), never on disk. Probe packages live under
+  `/private/tmp` (e.g. `nt-f6live`); see `docs/DEVLOG.md` for the F6
+  battery. Xcode `RunCodeSnippet` has a ~5s watchdog — use the CLI probe
+  with `-O` for long flows (SRP ~20s debug).

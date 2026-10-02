@@ -1,57 +1,82 @@
-# ROADMAP — F0 → F6
+# ROADMAP — F0 → F7
 
 > MVP = fila completa de upload + download funcionando contra conta real. Sem sync contínuo.
+>
+> Estado real em 2026-10-02: F0–F6 concluídas, F7 (UI nativa) praticamente
+> completa — restam screenshot e publicação. Suite offline 171/171.
 
-## F0 — Docs + Repo bootstrap (atual)
+## F0 — Docs + Repo bootstrap — ✅ done
 
 - [x] README, LICENSE MIT, .gitignore
 - [x] docs/ARCHITECTURE, AUTH, TRANSFERS, SDK-STRATEGY, ROADMAP, DECISIONS
 - [x] CONTRIBUTING, SECURITY
-- [ ] Criar repo nova (público, MIT), push inicial — manual, sem CI GitHub (ver CONTRIBUTING)
-- Critério de saída: docs revisados, repo criado, próxima fase desbloqueada.
+- [ ] Publicação do repo (público, MIT) — pendente junto ao release (S5.3, humano)
 
-## F1 — Scaffold + Build verde
+## F1 — Scaffold + Build verde — ✅ done
 
-- Criar projeto Xcode macOS SwiftUI Swift 6 (SPM, sem deps nativas ainda salvo BigInt avaliado).
-- Alvos: `NeutronTransfer` (app) + `NeutronTransferTests` (unit).
-- Build verde no Mac local, DerivedData externo `/Volumes/SSD 4TB/DEV/DerivedData`.
-- Sem builds concorrentes. Via Xcode MCP.
-- Critério: `BuildProject` passa, app vazio abre.
+- Projeto Xcode macOS SwiftUI Swift 6 criado; alvos `NeutronTransfer` +
+  `NeutronTransferTests`. Build verde, DerivedData externo.
 
-## F2 — Spike SRP (sem UI)
+## F2 — Spike SRP (sem UI) — ✅ done
 
-- `SRPClient` nativo + vetores `go-proton-api`/`rclone` em testes.
-- `POST /auth/v4/info` → proof → `POST /auth` contra conta teste.
-- 2FA TOTP manual se exigido. Mede NTP skew.
-- Nenhum token commitado, nenhum log com segredo.
-- Critério: login + refresh + logout funcionam via teste CLI/`RunCodeSnippet`, documentado em AUTH.
+- `SRPClient` nativo validado contra vetores `go-proton-api`/`rclone`.
+- Login SRP real verificado contra conta de teste; 2FA TOTP e refresh
+  implementados. Documentado em `docs/AUTH.md`.
 
-## F3 — Listing (browse)
+## F3 — Listing (browse) — ✅ done
 
-- `SessionManager` + `DriveClient` + `KeyUnlocker` (User→Address→Share).
-- Lista vault/folders, navega árvore, event-based invalidation básica.
-- UI: BrowserView somente-leitura.
-- Critério: navegar conta real, sem crash em unlock, erros HV/429 tratados.
+- `SessionManager` + `DriveClient` + unlock User→Address→Share→Node→Session.
+- Navegação de árvore verificada contra conta real; erros HV/429 tratados.
+- Na F7 o browser read-only virou o browser completo (ver F7).
 
-## F4 — Upload
+## F4 — Upload — ✅ done (com ressalva de servidor)
 
-- Drop target + enumerator recursivo + criação topológica de pastas.
-- `BlockEncryptor` + chunk upload + commit + retry backoff+jitter.
-- Fila SwiftData com progresso/pausa/cancela/retry.
-- Critério: arrastar pasta 100 arquivos / 1 GB preserva estrutura e verifica no listing.
+- Drop target + enumeração recursiva + criação topológica de pastas
+  (verificado live 2026-09-30).
+- `FileUpload` + chunking + encrypt + commit + retry backoff+jitter.
+- Fila persistente (`TransferQueue` — JSON atômico, não SwiftData) com
+  progresso/pausa/cancela/retry.
+- ⚠️ **Ressalva live (F6):** `POST /drive/blocks` tem allowlist estrita de
+  `x-pm-appversion` — nosso header honesto recebe 2000. Uploads diretos ficam
+  desabilitados no alpha (sem spoofing). Detalhes em `docs/TRANSFERS.md` §9.
 
-## F5 — Download
+## F5 — Download — ✅ done
 
-- `NSOpenPanel` diretório + espelho + fetch paralelo + decrypt + verify.
-- Escrita atômica `.neutron-part` → rename.
-- Critério: baixar vault parcial para pasta escolhida, hashes OK, resume após kill funciona.
+- Download de arquivos e pastas para pasta escolhida (`NSOpenPanel`),
+  espelho de árvore, blocos em paralelo, SHA-256 por bloco verificado
+  contra bytes de storage (live-proven), escrita atômica `.neutron-part`.
 
-## F6 — Fila completa + Alpha polish
+## F6 — Fila completa + Alpha polish — ✅ done
 
-- Unifica Upload/Download em `TransferStore` persistente, limites 4–8 adaptativos.
-- HV 9001 UI, estados de erro claros, onboarding + disclaimer third-party.
-- Isolamento `BlockFormatVersion` para migração cripto 2026/2027.
-- Critério: release `0.1.0-alpha` tagueada, notas + hash, sem segredos no bundle.
+- Aba Transfers unificada (uploads + downloads via `TransferActivityStore`),
+  erros acionáveis (`UserFacingError`), refresh pós-operação, modelos
+  tolerantes (`ShareMetadata`, `PendingHash`).
+- Bateria live de roundtrip + limpeza executada; resultado e achados em
+  `docs/TRANSFERS.md` §9.
+
+## F7 — Native UI + open-source prep — 🟡 nearly complete
+
+Plano completo: `docs/plans/F7-NATIVE-UI.md`. Auditoria:
+`docs/plans/F7-AUDIT.md`.
+
+- App nativo macOS 26: `Window` + `Settings`, `NavigationSplitView`
+  (My Files / Photos read-only / Computers), `Table` com navegação de
+  pastas, toolbar (New Folder / Upload / Download / Trash / Reload /
+  Transfers popover), comandos de menu, telas de login/2FA/unlocking.
+- Arquitetura nova: `AppSession` (raiz DI @MainActor), `NodeKeyResolver`,
+  `DriveListing`, coordinators de upload/download — ver
+  `docs/ARCHITECTURE.md`.
+- Documentação pública em inglês (README/CONTRIBUTING/SECURITY/ADR).
+- Pendente: screenshot do README, ícone do app, publicação do repo
+  (itens humanos — S5.3).
+
+## Backlog (pós-release)
+
+B1 streaming de upload por bloco · B2 tamanhos/datas reais via XAttr ·
+B3 sync por eventos · B4 tela de lixeira · B5 renomear · B6 Shared ·
+B7 nomes reais de computadores · B8–B13 (Quick Look, drag-out, drop em
+linha, UI HV 9001, fila por conta, grade de miniaturas) — lista completa
+no plano F7 §9.
 
 ## Fora do MVP
 
