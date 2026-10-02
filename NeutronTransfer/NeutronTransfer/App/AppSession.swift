@@ -214,10 +214,22 @@ final class AppSession {
 
 #if DEBUG
 extension AppSession {
-    /// Preview seam: no disk persistence (queue storeURL nil), no network —
-    /// stays in `.signedOut` so login/2FA screens render offline.
-    static func preview() -> AppSession {
-        AppSession(queueStoreURL: nil)
+    /// Preview seam: no disk persistence (queue storeURL nil), no network.
+    /// `phase`/`account`/`roots`/`rootsError` are assigned directly — this
+    /// same-file extension can write the `private(set)` fields — so shell
+    /// previews can render signed-in, loading and error states offline.
+    static func preview(
+        phase: Phase = .signedOut,
+        account: Account? = nil,
+        roots: DriveRoots? = nil,
+        rootsError: String? = nil
+    ) -> AppSession {
+        let session = AppSession(queueStoreURL: nil)
+        session.phase = phase
+        session.account = account
+        session.roots = roots
+        session.rootsError = rootsError
+        return session
     }
 }
 #endif

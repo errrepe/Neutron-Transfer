@@ -15,5 +15,6 @@ struct NeutronTransferApp: App {
         WindowGroup {
             RootView().environment(session)
         }
+        .defaultSize(width: 1100, height: 700)
     }
 }

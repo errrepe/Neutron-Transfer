@@ -10,7 +10,7 @@ struct RootView: View {
     var body: some View {
         switch session.phase {
         case .signedIn:
-            LegacyMainView()
+            MainView()
         case .signedOut, .signingIn, .needsTwoFactor, .unlocking:
             LoginView()
         }
