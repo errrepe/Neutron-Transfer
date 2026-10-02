@@ -81,6 +81,7 @@ struct LoginView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .keyboardShortcut(.defaultAction)
+            .accessibilityLabel(isSigningIn ? "Signing In" : "Sign In")
             .disabled(username.isEmpty || password.isEmpty || isSigningIn)
             .frame(width: 360)
             Divider()
@@ -95,6 +96,12 @@ struct LoginView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(minWidth: 420, minHeight: 320)
         .task {
+            // A failed 2FA lands back here with the typed username gone
+            // (this view unmounted while the prompt was up) — repopulate
+            // it from the session so only the password needs retyping.
+            if username.isEmpty, let loginUsername = session.loginUsername {
+                username = loginUsername
+            }
             focus = .username
             // A 2FA failure lands back here with the error already set —
             // onChange missed it while the view was unmounted, so announce

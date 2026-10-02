@@ -29,6 +29,8 @@ struct TransferRow: View {
                 .resizable()
                 .frame(width: 20, height: 20)
                 .padding(.top, 1)
+                // Decorative: name + subtitle already give VoiceOver context.
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.name)
                     .lineLimit(1)

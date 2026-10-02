@@ -101,7 +101,7 @@ struct AppCommands: Commands {
             .keyboardShortcut(.delete, modifiers: [.command])
             .disabled(!canTrash)
 
-            Button("Download") {
+            Button("Download…") {
                 guard let browser else { return }
                 browser.downloadItems(browser.selection)
             }

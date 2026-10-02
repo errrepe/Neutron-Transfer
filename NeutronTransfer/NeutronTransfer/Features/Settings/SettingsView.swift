@@ -42,6 +42,7 @@ struct SettingsView: View {
                 value: $maxConcurrentUploads,
                 in: 1...8
             )
+            .monospacedDigit()
         }
         .formStyle(.grouped)
         .padding()

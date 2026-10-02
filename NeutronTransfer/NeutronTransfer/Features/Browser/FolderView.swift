@@ -57,7 +57,9 @@ struct FolderView: View {
                             Task { await model.uploadPanel(folders: true) }
                         }
                     }
-                    .help("Uploading to Photos isn't supported yet.")
+                    .help(model.root.allowsWrites
+                          ? "Upload files or a folder into this folder."
+                          : "Uploading to Photos isn't supported yet.")
                     .disabled(!model.root.allowsWrites)
                 }
                 ToolbarItem(placement: .primaryAction) {

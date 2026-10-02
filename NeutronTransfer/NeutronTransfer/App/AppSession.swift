@@ -66,8 +66,10 @@ final class AppSession {
     private(set) var rootsError: String?
     /// Retained only between signIn and the post-2FA unlock; zeroed on exit.
     private var pendingPassword: Data?
-    /// Username being signed in — account fallback when /users has no email.
-    private var loginUsername: String?
+    /// Username being signed in — account fallback when /users has no
+    /// email, and the login field's prefill after a failed 2FA lands back
+    /// on the login screen (S4.3 audit).
+    private(set) var loginUsername: String?
 
     init(queueStoreURL: URL? = TransferQueue.defaultStoreURL()) {
         let sessions = SessionManager()

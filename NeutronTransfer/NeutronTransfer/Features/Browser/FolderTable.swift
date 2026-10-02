@@ -27,6 +27,7 @@ struct FolderTable: View {
                     if !item.isNameDecrypted {
                         Image(systemName: "lock.trianglebadge.exclamationmark")
                             .foregroundStyle(.secondary)
+                            .accessibilityLabel("Name couldn't be decrypted")
                             .help("This name couldn't be decrypted with your current keys.")
                     }
                 }

@@ -42,5 +42,7 @@ struct FileIcon: View {
         Image(nsImage: FileIconCache.icon(for: item))
             .resizable()
             .frame(width: 16, height: 16)
+            // Decorative: the adjacent name cell is the accessible content.
+            .accessibilityHidden(true)
     }
 }
