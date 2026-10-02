@@ -43,6 +43,15 @@ final class AppSession {
     /// upload/download adapters; created once `addressKeys` unlock, reset +
     /// dropped on sign-out.
     private(set) var resolver: NodeKeyResolver?
+    /// Listing service (S1.3) — created alongside the resolver, dropped on
+    /// sign-out. Stateless glue: all key/link state lives in `resolver`.
+    private(set) var listing: DriveListing?
+    /// Classified drive roots for the shell (My Files / Photos / Computers);
+    /// nil until `loadRoots` succeeds.
+    private(set) var roots: DriveRoots?
+    /// Last `loadRoots` failure, user-facing — drives the shell error
+    /// state (S2.1).
+    private(set) var rootsError: String?
     /// Retained only between signIn and the post-2FA unlock; zeroed on exit.
     private var pendingPassword: Data?
     /// Username being signed in — account fallback when /users has no email.
@@ -76,6 +85,7 @@ final class AppSession {
             try await finishSignIn()
             await refreshAccount()
             phase = .signedIn
+            await loadRoots()
         } catch let e as ProtonAPIError where e == .needs2FA {
             // Keep pendingPassword: the unlock still runs after submitTwoFactor.
             phase = .needsTwoFactor
@@ -99,6 +109,7 @@ final class AppSession {
             try await finishSignIn()
             await refreshAccount()
             phase = .signedIn
+            await loadRoots()
         } catch let e as ProtonAPIError where e == .bcryptNotAvailable {
             loginError = "Crypto backend missing (bcrypt). Report this bug."
             phase = .signedOut
@@ -122,6 +133,9 @@ final class AppSession {
         await queue.setUploader(nil)
         await resolver?.reset()
         resolver = nil
+        listing = nil
+        roots = nil
+        rootsError = nil
         await sessions.signOut()
         await keyrings.lock()
         addressKeys = []
@@ -152,6 +166,23 @@ final class AppSession {
         }
     }
 
+    /// Fetches the classified drive roots for the shell. Runs when the phase
+    /// enters .signedIn; a failure lands in `rootsError` (S2.1 renders it)
+    /// and never reverts the sign-in. A sign-out mid-flight drops the result
+    /// together with the listing that produced it (identity re-check).
+    func loadRoots() async {
+        guard let listing else { return }
+        do {
+            let loaded = try await listing.roots()
+            guard self.listing === listing else { return }
+            roots = loaded
+            rootsError = nil
+        } catch {
+            guard self.listing === listing else { return }
+            rootsError = UserFacingError.message(for: error)
+        }
+    }
+
     // MARK: - internals
 
     /// Salts → user keys → address keys, while the password grant is fresh
@@ -163,7 +194,9 @@ final class AppSession {
         let salted = try await sessions.fetchSaltedKeyPass(password: pwd, primaryKeyID: primaryID)
         let userKeys = try await keyrings.unlockUserKeys(saltedPass: salted)
         addressKeys = try await keyrings.unlockAddressKeys(userKeys: userKeys)
-        resolver = NodeKeyResolver(source: drive, addressKeys: addressKeys)
+        let resolver = NodeKeyResolver(source: drive, addressKeys: addressKeys)
+        self.resolver = resolver
+        listing = DriveListing(drive: drive, resolver: resolver)
     }
 
     /// Scrubs the retained password: resetBytes writes zeros into the buffer
