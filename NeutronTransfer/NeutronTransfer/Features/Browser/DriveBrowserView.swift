@@ -6,8 +6,8 @@ struct DriveBrowserView: View {
     @State private var model: DriveBrowserViewModel
     private let activity: TransferActivityStore?
 
-    init(sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
-        model = DriveBrowserViewModel(sessions: sessions, addressKeys: addressKeys, activity: activity)
+    init(sessions: SessionManager, drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
+        model = DriveBrowserViewModel(drive: drive, addressKeys: addressKeys, activity: activity)
         self.activity = activity
     }
 

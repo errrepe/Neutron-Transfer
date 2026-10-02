@@ -102,7 +102,14 @@ actor SessionManager {
         try await api.auth2FA(code: code, uid: s.uid, accessToken: s.accessToken)
     }
 
-    func signOut() {
+    /// Ends the session: best-effort server-side logout (DELETE /auth/v4,
+    /// go-proton-api auth.go `Client.AuthDelete`) while the token is still
+    /// held, then local clear. API failures are ignored — local sign-out
+    /// always wins.
+    func signOut() async {
+        if let s = session {
+            try? await api.authDelete(uid: s.uid, accessToken: s.accessToken)
+        }
         session = nil
     }
 

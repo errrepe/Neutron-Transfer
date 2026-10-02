@@ -37,6 +37,13 @@ actor KeyringCache {
         }
     }
 
+    /// Address list (email fallback for the account header — S0.3).
+    func fetchAddresses() async throws -> [ProtonAddress] {
+        try await sessions.withAuth { uid, token in
+            try await self.api.get(AddressesResponse.self, path: "/core/v4/addresses", uid: uid, accessToken: token).addresses
+        }
+    }
+
     /// Unlocks all active user secret keys with the salted pass, verifying each
     /// decrypted seed against its public point (constant-size compare only).
     @discardableResult
@@ -55,9 +62,7 @@ actor KeyringCache {
     /// address secret key is unlocked with that passphrase (F3b-2).
     @discardableResult
     func unlockAddressKeys(userKeys: [UnlockedKey]) async throws -> [UnlockedKey] {
-        let addresses: [ProtonAddress] = try await sessions.withAuth { uid, token in
-            try await self.api.get(AddressesResponse.self, path: "/core/v4/addresses", uid: uid, accessToken: token).addresses
-        }
+        let addresses = try await fetchAddresses()
         let candidates = userKeys.compactMap(\.candidate)
         var out: [UnlockedKey] = []
         for addr in addresses {

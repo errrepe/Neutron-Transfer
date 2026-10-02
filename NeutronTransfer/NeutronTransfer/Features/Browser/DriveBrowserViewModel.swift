@@ -37,8 +37,8 @@ final class DriveBrowserViewModel {
     private let addressKeys: [KeyringCache.UnlockedKey]
     private let activity: TransferActivityStore?
 
-    init(sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
-        drive = DriveClient(sessions: sessions)
+    init(drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
+        self.drive = drive
         self.addressKeys = addressKeys
         self.activity = activity
     }

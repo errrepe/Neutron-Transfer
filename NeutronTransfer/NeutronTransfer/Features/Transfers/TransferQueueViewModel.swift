@@ -32,12 +32,12 @@ final class TransferQueueViewModel {
     private let activity: TransferActivityStore?
     private var knownDone: Set<UUID> = []
 
-    init(queue: TransferQueue, sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
+    init(queue: TransferQueue, sessions: SessionManager, drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
         self.queue = queue
         self.sessions = sessions
+        self.drive = drive
         self.addressKeys = addressKeys
         self.activity = activity
-        drive = DriveClient(sessions: sessions)
     }
 
     var selectedShare: ShareOption? {

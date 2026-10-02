@@ -9,9 +9,11 @@ import SwiftUI
 
 @main
 struct NeutronTransferApp: App {
+    @State private var session = AppSession()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView().environment(session)
         }
     }
 }

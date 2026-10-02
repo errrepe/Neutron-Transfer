@@ -11,8 +11,8 @@ struct TransferQueueView: View {
     @State private var isTargeted = false
     private let activity: TransferActivityStore?
 
-    init(queue: TransferQueue, sessions: SessionManager, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
-        model = TransferQueueViewModel(queue: queue, sessions: sessions, addressKeys: addressKeys, activity: activity)
+    init(queue: TransferQueue, sessions: SessionManager, drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
+        model = TransferQueueViewModel(queue: queue, sessions: sessions, drive: drive, addressKeys: addressKeys, activity: activity)
         self.activity = activity
     }
 

@@ -54,6 +54,15 @@ struct APIClient: Sendable {
         return try await decode(AuthResponse.self, request: req).auth
     }
 
+    /// Server-side logout: `DELETE /auth/v4` with x-pm-uid + Bearer
+    /// (go-proton-api `auth.go` — `func (c *Client) AuthDelete`). Decoding
+    /// the envelope surfaces non-1000/1001 codes; callers treat it as
+    /// best-effort (local sign-out always wins).
+    func authDelete(uid: String, accessToken: String) async throws {
+        let req = try request("/auth/v4", method: "DELETE", uid: uid, accessToken: accessToken)
+        _ = try await decode(ProtonEnvelope.self, request: req)
+    }
+
     /// Authenticated GET with query params (Drive API style).
     func get<T: Decodable>(
         _ type: T.Type,

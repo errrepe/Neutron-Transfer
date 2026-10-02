@@ -50,8 +50,25 @@ struct ProtonKeyRef: Decodable, Sendable {
 }
 
 struct ProtonUser: Decodable, Sendable {
+    /// Account fields mirror go-proton-api user_types.go (`type User`):
+    /// Name/DisplayName/Email/UsedSpace/MaxSpace. All optional — the
+    /// synthesized Decodable uses decodeIfPresent, so minimal /users
+    /// payloads (Keys only) still decode.
+    var name: String?
+    var displayName: String?
+    var email: String?
+    var usedSpace: Int64?
+    var maxSpace: Int64?
     var keys: [ProtonKeyRef]
-    enum CodingKeys: String, CodingKey { case keys = "Keys" }
+
+    enum CodingKeys: String, CodingKey {
+        case name = "Name"
+        case displayName = "DisplayName"
+        case email = "Email"
+        case usedSpace = "UsedSpace"
+        case maxSpace = "MaxSpace"
+        case keys = "Keys"
+    }
 
     var primaryKey: ProtonKeyRef? {
         keys.first(where: \.isPrimary) ?? keys.first
