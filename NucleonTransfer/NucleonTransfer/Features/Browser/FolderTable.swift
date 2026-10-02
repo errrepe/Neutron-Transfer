@@ -6,6 +6,11 @@
 // S2.3 context menus (spec 6.3): Open / Download… / Move to Trash on a
 // selection; S3.1 fills the empty-area menu with New Folder / Upload
 // Files… / Upload Folder… / Reload.
+// B10: the Table uses the explicit columns/rows init so each folder row
+// is its own drop target (TableRow.dropDestination — the only per-row
+// drop API; the system draws the row highlight). File rows carry no
+// modifier, so a drop on them falls through to the table-level .onDrop
+// in FolderView targeting the open folder.
 import SwiftUI
 
 struct FolderTable: View {
@@ -19,8 +24,12 @@ struct FolderTable: View {
     /// the $model.selection / $model.sortOrder Table bindings.
     @Bindable var model: BrowserModel
 
+    /// The row under the pointer — FolderView resolves it through
+    /// DropTargeting so the drop overlay names the real destination.
+    @Binding var hoveredItem: DriveItem?
+
     var body: some View {
-        Table(items, selection: $model.selection, sortOrder: $model.sortOrder) {
+        Table(of: DriveItem.self, selection: $model.selection, sortOrder: $model.sortOrder) {
             TableColumn("Name", value: \.name, comparator: .localizedStandard) { item in
                 HStack(spacing: 6) {
                     FileIcon(item: item)
@@ -53,6 +62,22 @@ struct FolderTable: View {
                     .monospacedDigit()
             }
             .alignment(.trailing)
+        } rows: {
+            ForEach(items) { item in
+                if item.isFolder && model.root.allowsWrites {
+                    TableRow(item)
+                        .onHover { trackHovered(item, $0) }
+                        // B10: a drop on this row uploads into THAT
+                        // folder — pinned by location, so a mid-drop
+                        // navigation can't retarget it.
+                        .dropDestination(for: URL.self) { urls in
+                            Task { await model.upload(urls: urls, to: item.location) }
+                        }
+                } else {
+                    TableRow(item)
+                        .onHover { trackHovered(item, $0) }
+                }
+            }
         }
         // M3: with zero rows the zebra stripes still draw behind the
         // ContentUnavailableView overlay — disable alternation so the
@@ -84,6 +109,16 @@ struct FolderTable: View {
             }
         } primaryAction: { ids in
             model.openSelection(ids)
+        }
+    }
+
+    /// Pointer tracking for the drop overlay's label: leaving a row only
+    /// clears the binding when it still names that row.
+    private func trackHovered(_ item: DriveItem, _ hovering: Bool) {
+        if hovering {
+            hoveredItem = item
+        } else if hoveredItem == item {
+            hoveredItem = nil
         }
     }
 

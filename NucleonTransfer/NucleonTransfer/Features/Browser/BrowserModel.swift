@@ -219,15 +219,25 @@ final class BrowserModel {
         await upload(urls: urls)
     }
 
-    /// Enqueues dropped/picked URLs into `current` (S3.1). The breadcrumb
-    /// ("My Files › Projects") is computed here — the coordinator only
-    /// stores the label for the transfers panel. Guards read-only roots so
-    /// a stray drop on Photos never reaches the queue.
-    func upload(urls: [URL]) async {
+    /// Enqueues dropped/picked URLs into `destination` (S3.1). B10: the
+    /// caller pins the destination — a folder-row drop passes that row's
+    /// location, the table-level drop and the pickers pass the open
+    /// folder — so a mid-drop navigation can't retarget the upload.
+    /// The breadcrumb ("My Files › Projects") is computed here — the
+    /// coordinator only stores the label for the transfers panel; for a
+    /// row folder off the navigation path `ancestors` degrades to
+    /// root › row. Guards read-only roots so a stray drop on Photos
+    /// never reaches the queue.
+    func upload(urls: [URL], to destination: DriveLocation) async {
         guard root.allowsWrites, !urls.isEmpty, let uploads = session.uploads else { return }
-        let destination = current
         let breadcrumb = ancestors(of: destination).map(\.name).joined(separator: " › ")
         await uploads.upload(urls: urls, to: destination, breadcrumb: breadcrumb)
+    }
+
+    /// Uploads into the folder on screen — the pickers/menus that act on
+    /// `current` (S3.1).
+    func upload(urls: [URL]) async {
+        await upload(urls: urls, to: current)
     }
 
     /// Creates a folder named `name` in the current folder, refetches it

@@ -23,6 +23,9 @@ struct FolderView: View {
     @Bindable var model: BrowserModel
     /// True while a file drag hovers the table — drives DropOverlay.
     @State private var isTargeted = false
+    /// The row under the pointer, mirrored from FolderTable — while a
+    /// drag hovers a folder row the overlay names THAT destination (B10).
+    @State private var hoveredItem: DriveItem?
 
     private var state: BrowserModel.FolderState { model.state(for: location) }
     private var items: [DriveItem] { model.visibleItems(for: location) }
@@ -151,16 +154,25 @@ struct FolderView: View {
     /// the drop is refused — there is nothing to accept it onto.
     /// `model.root` is fixed for the view's lifetime (`.id(root.id)`
     /// rebuilds the stack on root change), so the conditional is stable.
+    /// B10: the destination is this view's `location`, pinned at drop
+    /// time — a folder-row drop (FolderTable) uploads into that row's
+    /// folder, and `location` never moves with `model.current`, so
+    /// navigating while the providers resolve can't retarget the upload.
     @ViewBuilder
     private var tableWithUploadDrop: some View {
-        let table = FolderTable(items: items, model: model)
+        let table = FolderTable(items: items, model: model, hoveredItem: $hoveredItem)
             .overlay { stateOverlay }
-            .overlay { if isTargeted { DropOverlay(location: location) } }
+            .overlay {
+                if isTargeted {
+                    DropOverlay(location: DropTargeting.destination(
+                        for: hoveredItem, fallback: location))
+                }
+            }
         if model.root.allowsWrites {
             table.onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
                 Task {
                     let urls = await UploadCoordinator.droppedFileURLs(providers)
-                    await model.upload(urls: urls)
+                    await model.upload(urls: urls, to: location)
                 }
                 return true
             }

@@ -238,6 +238,26 @@ struct DriveItemOrderingTests {
     }
 }
 
+// MARK: - drop targeting (B10)
+
+struct DropTargetingTests {
+    private let current = DriveLocation(shareID: "s1", linkID: "root-link", name: "My Files")
+
+    @Test func folderRowTargetsItself() {
+        let folder = makeItem("d1", name: "Docs", folder: true)
+        #expect(DropTargeting.destination(for: folder, fallback: current) == folder.location)
+    }
+
+    @Test func fileRowFallsBackToCurrentFolder() {
+        let file = makeItem("f1", name: "notes.txt")
+        #expect(DropTargeting.destination(for: file, fallback: current) == current)
+    }
+
+    @Test func noRowUnderPointerFallsBack() {
+        #expect(DropTargeting.destination(for: nil, fallback: current) == current)
+    }
+}
+
 // MARK: - formatting
 
 struct DriveFormattingTests {
