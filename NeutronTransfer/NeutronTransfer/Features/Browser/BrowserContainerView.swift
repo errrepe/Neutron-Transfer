@@ -1,0 +1,103 @@
+// Neutron Transfer — per-root browser container (F7 S2.2).
+// One NavigationStack per root: the path is BrowserModel.path
+// (DriveLocation values), the filter field lives in the toolbar, and the
+// model is shared with FolderView/FolderTable via the environment.
+// MainView gives each root its own instance with .id(root.id).
+import SwiftUI
+
+struct BrowserContainerView: View {
+    @State private var model: BrowserModel
+
+    init(root: DriveRoot, session: AppSession) {
+        _model = State(initialValue: BrowserModel(root: root, session: session))
+    }
+
+    var body: some View {
+        @Bindable var model = model
+        NavigationStack(path: $model.path) {
+            FolderView(location: model.rootLocation)
+                .navigationDestination(for: DriveLocation.self) { location in
+                    FolderView(location: location)
+                }
+        }
+        .searchable(
+            text: $model.filterText,
+            placement: .toolbar,
+            prompt: "Filter this folder"
+        )
+        .environment(model)
+    }
+}
+
+#if DEBUG
+extension BrowserContainerView {
+    /// Preview seam — injects a pre-seeded model (see `BrowserModel.preview`)
+    /// so every browser state renders without network or a real session.
+    init(preview model: BrowserModel) {
+        _model = State(initialValue: model)
+    }
+}
+
+#Preview("Folder — Light") {
+    BrowserContainerView(preview: .preview())
+        .frame(width: 720, height: 480)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Folder — Dark") {
+    BrowserContainerView(preview: .preview())
+        .frame(width: 720, height: 480)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Empty — Light") {
+    BrowserContainerView(preview: .preview(items: []))
+        .frame(width: 720, height: 480)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Empty — Dark") {
+    BrowserContainerView(preview: .preview(items: []))
+        .frame(width: 720, height: 480)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Error — Light") {
+    BrowserContainerView(preview: .preview(
+        items: [],
+        error: "Network issue. Check your connection and try again."
+    ))
+    .frame(width: 720, height: 480)
+    .preferredColorScheme(.light)
+}
+
+#Preview("Error — Dark") {
+    BrowserContainerView(preview: .preview(
+        items: [],
+        error: "Network issue. Check your connection and try again."
+    ))
+    .frame(width: 720, height: 480)
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Loading — Light") {
+    BrowserContainerView(preview: .preview(items: [], phase: .loading))
+        .frame(width: 720, height: 480)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Loading — Dark") {
+    BrowserContainerView(preview: .preview(items: [], phase: .loading))
+        .frame(width: 720, height: 480)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Photos — Read-Only") {
+    let photosRoot = PreviewFixtures.roots.photos ?? DriveRoot(
+        shareID: "share-photos", rootLinkID: "link-photos-root",
+        volumeID: "vol-photos", kind: .photos, displayName: "Photos"
+    )
+    BrowserContainerView(preview: .preview(root: photosRoot))
+        .frame(width: 720, height: 480)
+}
+#endif

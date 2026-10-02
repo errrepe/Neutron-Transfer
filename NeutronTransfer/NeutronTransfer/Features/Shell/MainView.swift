@@ -1,7 +1,7 @@
-// Neutron Transfer — signed-in shell (F7 S2.1).
-// NavigationSplitView: classified roots in the sidebar, folder contents in
-// the detail column (placeholder text until S2.2's BrowserContainerView).
-// While roots load, a spinner; on failure, a retryable unavailable view.
+// Neutron Transfer — signed-in shell (F7 S2.1 + S2.2).
+// NavigationSplitView: classified roots in the sidebar, BrowserContainerView
+// (Table + folder navigation) in the detail column. While roots load, a
+// spinner; on failure, a retryable unavailable view.
 // The "Legacy Transfers" toolbar sheet keeps upload access until S3.
 import SwiftUI
 
@@ -47,16 +47,20 @@ struct MainView: View {
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
         } detail: {
             if let root = selectedRoot(in: roots) {
-                // S2.1 placeholder — S2.2 swaps in BrowserContainerView(root:).id(root.id).
-                Text(root.displayName)
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
+                // One browser stack per root — .id rebuilds the model, path
+                // and caches when the sidebar selection changes.
+                BrowserContainerView(root: root, session: session)
+                    .id(root.id)
+            } else if roots.all.isEmpty {
                 ContentUnavailableView(
                     "No Drive Locations",
                     systemImage: "externaldrive",
                     description: Text("This account has no browsable drives.")
+                )
+            } else {
+                ContentUnavailableView(
+                    "Select a Location",
+                    systemImage: "sidebar.left"
                 )
             }
         }
@@ -70,10 +74,13 @@ struct MainView: View {
         }
     }
 
-    /// Falls back to the first available root so the detail column never
-    /// strands on a selection whose share disappeared after a reload.
+    /// The root for the sidebar selection, or nil when nothing is selected
+    /// (detail shows "Select a Location"). A selection whose share vanished
+    /// after a reload falls back to the first root so the detail never
+    /// strands.
     private func selectedRoot(in roots: DriveRoots) -> DriveRoot? {
-        selection?.root(in: roots) ?? roots.all.first
+        guard let selection else { return nil }
+        return selection.root(in: roots) ?? roots.all.first
     }
 }
 
