@@ -45,7 +45,8 @@ final class AppSession {
     private(set) var resolver: NodeKeyResolver?
     /// Listing service (S1.3) — created alongside the resolver, dropped on
     /// sign-out. Stateless glue: all key/link state lives in `resolver`.
-    private(set) var listing: DriveListing?
+    /// Protocol-typed so DEBUG builds can swap in the offline demo fixture.
+    private(set) var listing: (any DriveListingProviding)?
     /// Browser download orchestrator (S2.3) — created alongside the
     /// resolver, dropped on sign-out. Holds no state of its own beyond
     /// in-flight dedup; all progress lands in `activity`.
@@ -266,5 +267,25 @@ extension AppSession {
         session.rootsError = rootsError
         return session
     }
+
+    /// Offline demo session for QA agents and screenshots: signed-in shell
+    /// over DemoDriveListing, no network, no keys. Launch with `-NTDemoMode
+    /// YES`. resolver/coordinators stay nil so the write UI is disabled, and
+    /// `roots` loads through the normal `loadRoots()` path.
+    static func demo() -> AppSession {
+        let session = AppSession(queueStoreURL: nil)
+        session.phase = .signedIn
+        session.account = Account(
+            email: "demo@example.com", displayName: "Demo",
+            usedBytes: 2_150_000_000, maxBytes: 5_000_000_000
+        )
+        session.listing = DemoDriveListing()
+        Task { await session.loadRoots() }
+        return session
+    }
+
+    /// True while the session is backed by the offline demo listing —
+    /// sign-out nils `listing`, so the flag clears itself.
+    var isDemo: Bool { listing is DemoDriveListing }
 }
 #endif

@@ -7,7 +7,13 @@ import SwiftUI
 
 @main
 struct NeutronTransferApp: App {
+    #if DEBUG
+    // `-NTDemoMode YES` lands in the argument domain of UserDefaults and
+    // boots the offline demo session (R1).
+    @State private var session = UserDefaults.standard.bool(forKey: "NTDemoMode") ? AppSession.demo() : AppSession()
+    #else
     @State private var session = AppSession()
+    #endif
 
     var body: some Scene {
         Window("Neutron Transfer", id: "main") {

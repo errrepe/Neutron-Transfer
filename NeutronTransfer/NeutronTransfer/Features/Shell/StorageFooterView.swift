@@ -18,6 +18,17 @@ struct StorageFooterView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            #if DEBUG
+            if session.isDemo {
+                Text("Demo Mode")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(.orange.opacity(0.15), in: Capsule())
+                    .help("Offline sample data — nothing is sent or stored.")
+            }
+            #endif
             if let fraction = quotaFraction {
                 ProgressView(value: min(fraction, 1), total: 1)
                     .tint(quotaTint(for: fraction))
@@ -115,5 +126,12 @@ struct StorageFooterView: View {
         .environment(PreviewFixtures.session())
         .frame(width: 220)
         .preferredColorScheme(.dark)
+}
+
+#Preview("Demo Mode") {
+    StorageFooterView()
+        .environment(AppSession.demo())
+        .frame(width: 220)
+        .preferredColorScheme(.light)
 }
 #endif

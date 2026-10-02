@@ -5,6 +5,13 @@
 // decryption is CPU work — it runs on this actor, never on the main thread.
 import Foundation
 
+/// Read side of the drive used by the browser — the live actor and the
+/// DEBUG demo fixture both conform.
+protocol DriveListingProviding: AnyObject, Sendable {
+    func roots() async throws -> DriveRoots
+    func children(of location: DriveLocation) async throws -> [DriveItem]
+}
+
 actor DriveListing {
     private let drive: DriveClient
     private let resolver: NodeKeyResolver
@@ -48,3 +55,5 @@ actor DriveListing {
         }
     }
 }
+
+extension DriveListing: DriveListingProviding {}

@@ -44,6 +44,12 @@
   the app (no `TEST_HOST`), so `@testable import` does not link under
   Xcode — `swift test` is the canonical path for the offline suite (the
   shared `NeutronTransfer` scheme deliberately lists no testables).
+- **Demo mode (DEBUG only):** launch the app signed into an offline,
+  deterministic drive — no credentials, no network. In Xcode: Product →
+  Scheme → Edit Scheme → Run → Arguments → add `-NTDemoMode YES`. Via
+  cua-driver: `launch_app` with
+  `additional_arguments: ["-NTDemoMode","YES"]`. The sidebar footer shows a
+  "Demo Mode" capsule; Sign Out returns to the normal login screen.
 
 ## 5. Git
 
