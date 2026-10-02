@@ -1,6 +1,7 @@
 // Neutron Transfer — OpenPGP hashes + string-to-key (RFC 4880 §3.6/3.7).
 // Hash IDs: 1 MD5, 2 SHA-1, 8 SHA-256, 9 SHA-384, 10 SHA-512, 11 SHA-224.
 import CommonCrypto
+import CryptoKit
 import Foundation
 
 enum PGPHashError: Error, Sendable {
@@ -24,9 +25,7 @@ enum PGPHash {
     static func digest(id: UInt8, _ data: Data) throws -> Data {
         switch id {
         case 1:
-            var out = [UInt8](repeating: 0, count: Int(CC_MD5_DIGEST_LENGTH))
-            _ = data.withUnsafeBytes { CC_MD5($0.baseAddress, CC_LONG(data.count), &out) }
-            return Data(out)
+            return Data(Insecure.MD5.hash(data: data))
         case 2:
             var out = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
             _ = data.withUnsafeBytes { CC_SHA1($0.baseAddress, CC_LONG(data.count), &out) }

@@ -82,7 +82,7 @@ enum FileDownload {
         blockSize: Int = FileUpload.defaultBlockSize,
         contentKey: Data? = nil
     ) throws -> Data {
-        let key = try contentKey ?? Data((0..<FileUpload.sessionKeyLength).map { _ in UInt8.random(in: .min ... .max) })
+        let key = contentKey ?? Data((0..<FileUpload.sessionKeyLength).map { _ in UInt8.random(in: .min ... .max) })
         guard key.count == FileUpload.sessionKeyLength else { throw FileDownloadError.missingContentKey }
         let chunks = FileUpload.splitBlocks(data, blockSize: blockSize)
         guard !chunks.isEmpty else { return Data() }

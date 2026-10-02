@@ -257,7 +257,7 @@ actor DriveClient {
             node: prepared.node, addressKeys: addressKeys,
             signatureAddress: signatureAddress, signatureEmail: signatureEmail
         )
-        try await commitRevision(
+        _ = try await commitRevision(
             shareID: shareID, linkID: ids.linkID,
             revisionID: ids.revisionID, request: commit
         )
