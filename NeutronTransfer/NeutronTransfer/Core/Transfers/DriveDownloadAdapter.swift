@@ -1,7 +1,8 @@
-// Neutron Transfer — live download adapter (F5).
-// Bridges the offline-tested FileDownload core to DriveClient + DecryptChain.
-// All key material stays in memory: addressKeys (init) + per-share/per-folder
-// caches in this actor (mirrors DriveUploadAdapter's session memo).
+// Neutron Transfer — live download adapter (F5; S1.2 key resolver).
+// Bridges the offline-tested FileDownload core to DriveClient. Key material
+// is resolved by the session's shared NodeKeyResolver (share/node memo +
+// parent-chain walk + listing cache via `remember`), replacing this actor's
+// own shareKeys/nodes/roots dictionaries (P6).
 //
 // Flow per file (rclone-captured /tmp/f5ref):
 //   getLink -> unlockNode (parent candidates + address signer points) ->
@@ -16,26 +17,19 @@ import Foundation
 
 /// Live file/folder download over DriveClient.
 actor DriveDownloadAdapter {
-    /// Unlocked keyring for one remote folder (root or descended child).
-    struct ResolvedKeys: Sendable {
-        var keys: [KeyringCache.UnlockedKey]
-        var linkID: String
-    }
-
     private let drive: DriveClient
     private let addressKeys: [KeyringCache.UnlockedKey]
-    private var shareKeys: [String: [KeyringCache.UnlockedKey]] = [:]
-    private var nodes: [String: ResolvedKeys] = [:]
-    private var roots: [String: String] = [:] // shareID → root linkID
+    private let resolver: NodeKeyResolver
 
     /// Max parallel block fetches per file (TRANSFERS.md §1.5: bounded).
     var maxConcurrentBlocks = 4
     /// Max parallel file downloads per folder.
     var maxConcurrentFiles = 4
 
-    init(drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey]) {
+    init(drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey], resolver: NodeKeyResolver) {
         self.drive = drive
         self.addressKeys = addressKeys
+        self.resolver = resolver
     }
 
     // MARK: - single file
@@ -116,6 +110,7 @@ actor DriveDownloadAdapter {
         progress: (@Sendable (Int, Int) async -> Void)? = nil
     ) async throws -> URL {
         let link = try await drive.getLink(shareID: shareID, linkID: linkID)
+        await resolver.remember([link])
         guard !link.isFolder else {
             throw FileDownloadError.missingRevision
         }
@@ -143,8 +138,8 @@ actor DriveDownloadAdapter {
         destination: URL,
         progress: (@Sendable (String, Int64, Int64) async -> Void)? = nil
     ) async throws -> [URL] {
-        let rootKeys = try await keysForFolder(shareID: shareID, linkID: linkID)
         let link = try await drive.getLink(shareID: shareID, linkID: linkID)
+        await resolver.remember([link])
         if !link.isFolder {
             let parentKeys = try await parentKeysFor(shareID: shareID, link: link)
             let bytes = try await downloadFileBytes(
@@ -158,7 +153,6 @@ actor DriveDownloadAdapter {
             if let progress { await progress(name, Int64(bytes.count), Int64(bytes.count)) }
             return [dest]
         }
-        _ = rootKeys
         return try await downloadFolder(
             shareID: shareID, folderLinkID: linkID, localDir: destination,
             progress: progress
@@ -171,9 +165,12 @@ actor DriveDownloadAdapter {
         localDir: URL,
         progress: (@Sendable (String, Int64, Int64) async -> Void)? = nil
     ) async throws -> [URL] {
-        let folderKeys = try await keysForFolder(shareID: shareID, linkID: folderLinkID)
-        let candidates = folderKeys.keys.compactMap(\.candidate)
+        let folderKeys = try await resolver.nodeKeys(shareID: shareID, linkID: folderLinkID)
+        let candidates = folderKeys.compactMap(\.candidate)
         let children = try await drive.listChildren(shareID: shareID, linkID: folderLinkID)
+        // Listing already fetched the children's links — let the resolver
+        // reuse them instead of re-getLinking each subfolder on recursion.
+        await resolver.remember(children)
         try FileManager.default.createDirectory(
             at: localDir, withIntermediateDirectories: true
         )
@@ -209,7 +206,7 @@ actor DriveDownloadAdapter {
                 group.addTask {
                     let bytes = try await self.downloadFileBytes(
                         shareID: shareID, link: child.link,
-                        parentKeys: folderKeys.keys
+                        parentKeys: folderKeys
                     )
                     let dest = FileDownload.uniqueDestination(
                         in: localDir, name: child.name
@@ -237,7 +234,7 @@ actor DriveDownloadAdapter {
         return out
     }
 
-    // MARK: - key resolution (memory only; mirrors DriveUploadAdapter)
+    // MARK: - key resolution (delegates to the shared NodeKeyResolver)
 
     private func revisionID(shareID: String, link: DriveLink) async throws -> String {
         if let id = link.fileProperties?.activeRevision?.id, !id.isEmpty {
@@ -248,60 +245,15 @@ actor DriveDownloadAdapter {
         return last.id
     }
 
+    /// Parent candidates for a link's passphrase/name: the parent node's
+    /// keys, or the share keyring when the link has no parent (parity with
+    /// the pre-resolver fallback).
     private func parentKeysFor(
         shareID: String, link: DriveLink
     ) async throws -> [KeyringCache.UnlockedKey] {
-        if let parent = link.parentLinkID, let node = nodes[parent] {
-            return node.keys
-        }
         if let parent = link.parentLinkID {
-            return try await keysForFolder(shareID: shareID, linkID: parent).keys
+            return try await resolver.nodeKeys(shareID: shareID, linkID: parent)
         }
-        return try await shareKeyring(shareID: shareID)
-    }
-
-    private func keysForFolder(
-        shareID: String, linkID: String
-    ) async throws -> ResolvedKeys {
-        if let node = nodes[linkID] { return node }
-        if let rootID = roots[shareID], rootID == linkID,
-           let keys = try? await shareKeyring(shareID: shareID)
-        {
-            // Root folder unlocks with the share keyring.
-            let root = try await drive.getLink(shareID: shareID, linkID: linkID)
-            let signers = DecryptChain.edPoints(addressKeys)
-            let rootKeys = try DecryptChain.unlockNode(
-                root, parentCandidates: keys.compactMap(\.candidate),
-                signerPoints: signers
-            )
-            let resolved = ResolvedKeys(keys: rootKeys, linkID: linkID)
-            nodes[linkID] = resolved
-            return resolved
-        }
-        // Descend: parent first, then unlock this node with it.
-        let link = try await drive.getLink(shareID: shareID, linkID: linkID)
-        let parentKeys: [KeyringCache.UnlockedKey]
-        if let parent = link.parentLinkID {
-            parentKeys = try await keysForFolder(shareID: shareID, linkID: parent).keys
-        } else {
-            parentKeys = try await shareKeyring(shareID: shareID)
-        }
-        let signers = DecryptChain.edPoints(addressKeys)
-        let keys = try DecryptChain.unlockNode(
-            link, parentCandidates: parentKeys.compactMap(\.candidate),
-            signerPoints: signers
-        )
-        let resolved = ResolvedKeys(keys: keys, linkID: linkID)
-        nodes[linkID] = resolved
-        return resolved
-    }
-
-    private func shareKeyring(shareID: String) async throws -> [KeyringCache.UnlockedKey] {
-        if let keys = shareKeys[shareID] { return keys }
-        let share = try await drive.getShare(shareID)
-        let keys = try DecryptChain.unlockShare(share, addressKeys: addressKeys)
-        shareKeys[shareID] = keys
-        if let rootID = share.linkID { roots[shareID] = rootID }
-        return keys
+        return try await resolver.share(shareID).keys
     }
 }

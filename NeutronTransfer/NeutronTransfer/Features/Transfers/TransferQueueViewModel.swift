@@ -28,15 +28,17 @@ final class TransferQueueViewModel {
     private let sessions: SessionManager
     private let addressKeys: [KeyringCache.UnlockedKey]
     private let drive: DriveClient
+    private let resolver: NodeKeyResolver
     private var started = false
     private let activity: TransferActivityStore?
     private var knownDone: Set<UUID> = []
 
-    init(queue: TransferQueue, sessions: SessionManager, drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
+    init(queue: TransferQueue, sessions: SessionManager, drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey], resolver: NodeKeyResolver, activity: TransferActivityStore? = nil) {
         self.queue = queue
         self.sessions = sessions
         self.drive = drive
         self.addressKeys = addressKeys
+        self.resolver = resolver
         self.activity = activity
     }
 
@@ -48,7 +50,7 @@ final class TransferQueueViewModel {
     func start() async {
         if !started {
             started = true
-            await queue.setUploader(DriveUploadAdapter(drive: drive, addressKeys: addressKeys))
+            await queue.setUploader(DriveUploadAdapter(drive: drive, addressKeys: addressKeys, resolver: resolver))
             await queue.setListener { [weak self] snap in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
@@ -127,7 +129,7 @@ final class TransferQueueViewModel {
                         size: (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
                     )]
                 }
-                let adapter = DriveUploadAdapter(drive: drive, addressKeys: addressKeys)
+                let adapter = DriveUploadAdapter(drive: drive, addressKeys: addressKeys, resolver: resolver)
                 let ids = try await queue.enqueueTree(
                     entries: entries,
                     shareID: dest.id,

@@ -32,14 +32,25 @@ struct LegacyMainView: View {
                 Button("Cancel", role: .cancel) {}
             }
             TabView {
+                // Session resolver is always set once signed in; the `??`
+                // fallback only covers previews/edge rebuilds (empty caches,
+                // same source — harmless).
                 DriveBrowserView(
                     sessions: session.sessions, drive: session.drive,
-                    addressKeys: session.addressKeys, activity: session.activity
+                    addressKeys: session.addressKeys,
+                    resolver: session.resolver ?? NodeKeyResolver(
+                        source: session.drive, addressKeys: session.addressKeys
+                    ),
+                    activity: session.activity
                 )
                 .tabItem { Label("Browse", systemImage: "folder") }
                 TransferQueueView(
                     queue: session.queue, sessions: session.sessions, drive: session.drive,
-                    addressKeys: session.addressKeys, activity: session.activity
+                    addressKeys: session.addressKeys,
+                    resolver: session.resolver ?? NodeKeyResolver(
+                        source: session.drive, addressKeys: session.addressKeys
+                    ),
+                    activity: session.activity
                 )
                 .tabItem { Label("Transfers", systemImage: "arrow.up.arrow.down.circle") }
             }

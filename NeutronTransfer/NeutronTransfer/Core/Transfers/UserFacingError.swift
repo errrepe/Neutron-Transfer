@@ -123,8 +123,7 @@ enum UserFacingError: Sendable {
         {
             return "Download failed integrity check. Retry the download; if it persists, the remote file may need re-upload."
         }
-        if lower.contains("re-add") || lower.contains("unknown remote parent")
-            || lower.contains("local file missing")
+        if lower.contains("re-add") || lower.contains("local file missing")
         {
             return msg + " — re-add the folder/file to the queue."
         }

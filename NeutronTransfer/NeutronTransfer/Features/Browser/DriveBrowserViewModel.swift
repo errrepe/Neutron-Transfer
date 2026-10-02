@@ -35,11 +35,13 @@ final class DriveBrowserViewModel {
     var downloadStatus = ""
     private let drive: DriveClient
     private let addressKeys: [KeyringCache.UnlockedKey]
+    private let resolver: NodeKeyResolver
     private let activity: TransferActivityStore?
 
-    init(drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey], activity: TransferActivityStore? = nil) {
+    init(drive: DriveClient, addressKeys: [KeyringCache.UnlockedKey], resolver: NodeKeyResolver, activity: TransferActivityStore? = nil) {
         self.drive = drive
         self.addressKeys = addressKeys
+        self.resolver = resolver
         self.activity = activity
     }
 
@@ -86,6 +88,9 @@ final class DriveBrowserViewModel {
         let rootName = (try? DecryptChain.decryptName(root, parentCandidates: shareCands))
             ?? "(unnamed folder)"
         let kids = try await drive.listChildren(shareID: share.shareID, linkID: rootID)
+        // The listing already fetched these links — the shared resolver
+        // reuses them if the user downloads a listed item (S1.2).
+        await resolver.remember([root] + kids)
         var undecryptable = 0
         let rows = kids.map { kid -> Row in
             guard let name = try? DecryptChain.decryptName(kid, parentCandidates: rootCands) else {
@@ -162,7 +167,7 @@ final class DriveBrowserViewModel {
             downloadProgress.removeValue(forKey: id)
         }
         do {
-            let adapter = DriveDownloadAdapter(drive: drive, addressKeys: addressKeys)
+            let adapter = DriveDownloadAdapter(drive: drive, addressKeys: addressKeys, resolver: resolver)
             if row.link.isFolder {
                 let urls = try await adapter.downloadTree(
                     shareID: shareID, linkID: id, destination: destination

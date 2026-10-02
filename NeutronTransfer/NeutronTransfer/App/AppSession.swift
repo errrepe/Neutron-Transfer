@@ -39,6 +39,10 @@ final class AppSession {
 
     /// Unlocked address keys (share-passphrase chain root). Memory only.
     private(set) var addressKeys: [KeyringCache.UnlockedKey] = []
+    /// Single resolver for share/node key material (S1.2) — shared by the
+    /// upload/download adapters; created once `addressKeys` unlock, reset +
+    /// dropped on sign-out.
+    private(set) var resolver: NodeKeyResolver?
     /// Retained only between signIn and the post-2FA unlock; zeroed on exit.
     private var pendingPassword: Data?
     /// Username being signed in — account fallback when /users has no email.
@@ -116,6 +120,8 @@ final class AppSession {
     func signOut(reason: String? = nil) async {
         await queue.pauseAll()
         await queue.setUploader(nil)
+        await resolver?.reset()
+        resolver = nil
         await sessions.signOut()
         await keyrings.lock()
         addressKeys = []
@@ -157,6 +163,7 @@ final class AppSession {
         let salted = try await sessions.fetchSaltedKeyPass(password: pwd, primaryKeyID: primaryID)
         let userKeys = try await keyrings.unlockUserKeys(saltedPass: salted)
         addressKeys = try await keyrings.unlockAddressKeys(userKeys: userKeys)
+        resolver = NodeKeyResolver(source: drive, addressKeys: addressKeys)
     }
 
     /// Scrubs the retained password: resetBytes writes zeros into the buffer
