@@ -204,6 +204,32 @@ struct DownloadRecordTests {
         #expect(back == rec)
     }
 
+    @Test func progressDefaultsToNil() {
+        // S2.3: live 0…1 fraction while downloading; unknown until the
+        // first block lands (folders report file counts instead).
+        let rec = DownloadRecord(name: "a.txt", kind: .file)
+        #expect(rec.progress == nil)
+    }
+
+    @Test func progressCodableRoundTrip() throws {
+        let rec = DownloadRecord(name: "big.iso", kind: .file, progress: 0.42)
+        let back = try JSONDecoder().decode(DownloadRecord.self, from: try JSONEncoder().encode(rec))
+        #expect(back == rec)
+        #expect(back.progress == 0.42)
+    }
+
+    @Test func progressDecodesFromLegacyJSON() throws {
+        // Records written before S2.3 have no `progress` key — decoding
+        // must not fail (optional field → decodeIfPresent).
+        let json = """
+            {"id":"\(UUID().uuidString)","name":"old.bin","kind":"file",
+             "state":"done","fileCount":1,"startedAt":0,"updatedAt":0}
+            """.data(using: .utf8)!
+        let back = try JSONDecoder().decode(DownloadRecord.self, from: json)
+        #expect(back.progress == nil)
+        #expect(back.state == .done)
+    }
+
     @Test func holdsNoSecrets() throws {
         let rec = DownloadRecord(name: "a.txt", kind: .file, state: .downloading)
         let json = String(data: try JSONEncoder().encode([rec]), encoding: .utf8)!.lowercased()

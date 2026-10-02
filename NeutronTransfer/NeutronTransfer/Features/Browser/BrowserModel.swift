@@ -42,6 +42,19 @@ final class BrowserModel {
     ]
     var filterText = ""
 
+    // MARK: - S2.3 action UI state
+
+    /// Drives the New Folder sheet (toolbar + empty-area context menu).
+    var showingNewFolder = false
+    /// Drives the "Move to Trash" confirmationDialog (toolbar + menu).
+    var confirmingTrash = false
+    /// Message for the action-failure alert (trash/create); nil = hidden.
+    var actionError: String?
+    /// Mirrors the activity store's remote-changed token so views can key
+    /// `.task(id:)` on it without touching AppSession (tracking flows
+    /// through @Observable property access).
+    var remoteChangedToken: Int { session.activity.remoteChangedToken }
+
     private let session: AppSession
     /// DEBUG preview seam: when true, `load` is a no-op so seeded folder
     /// states render offline (see `BrowserModel.preview` below).
@@ -116,22 +129,26 @@ final class BrowserModel {
     }
 
     /// Primary activation (double click / Open). Folders push onto the
-    /// navigation path; files request a download — wired in S2.3, a no-op
-    /// for now.
+    /// navigation path; files download via the session coordinator (S2.3).
     func open(_ item: DriveItem) {
-        guard item.isFolder else { return }
-        path.append(item.location)
+        if item.isFolder {
+            path.append(item.location)
+        } else {
+            downloadItems([item.id])
+        }
     }
 
     /// Double-click activation on the current selection. In-place
     /// navigation can only go one way, so the first selected folder wins;
-    /// files are S2.3's download hook.
+    /// a file downloads the whole selected set.
     func openSelection(_ ids: Set<DriveItem.ID>) {
         for item in visibleItems(for: current) where ids.contains(item.id) {
             if item.isFolder {
                 path.append(item.location)
                 return
             }
+            downloadItems(ids)
+            return
         }
     }
 
@@ -165,6 +182,63 @@ final class BrowserModel {
         }
         guard parentLinkIDs.contains(current.linkID) else { return }
         Task { await load(current) }
+    }
+
+    // MARK: - S2.3 actions
+
+    /// Called when `remoteChangedToken` bumps (create/trash/upload touched
+    /// remote parents): forwards the published set to `markStale`.
+    func observeRemoteChanges() {
+        markStale(parentLinkIDs: session.activity.remoteChangedParents)
+    }
+
+    /// Selected items in the CURRENT folder (cache, not the filtered view —
+    /// a row hidden by the search filter is still a real selection).
+    func selectedItems(_ ids: Set<DriveItem.ID>) -> [DriveItem] {
+        state(for: current).items.filter { ids.contains($0.id) }
+    }
+
+    /// Kicks a batch download through the session coordinator — it owns the
+    /// destination panel, sequential loop and activity records. No-ops when
+    /// signed out (downloads is nil) or the selection is empty.
+    func downloadItems(_ ids: Set<DriveItem.ID>) {
+        let items = selectedItems(ids)
+        guard !items.isEmpty, let downloads = session.downloads else { return }
+        Task { await downloads.download(items) }
+    }
+
+    /// Creates a folder named `name` in the current folder, refetches it
+    /// and selects the new row. Throws raw — the sheet maps via
+    /// UserFacingError and stays open so the name can be fixed.
+    /// (`folderOps.createFolder` already publishes remoteChanged; the
+    /// extra forced load is a belt-and-braces refresh, `load` dedupes.)
+    func createFolder(named name: String) async throws {
+        guard let ops = session.folderOps else {
+            throw FolderOperationError.sessionNotReady
+        }
+        let linkID = try await ops.createFolder(name: name, in: current)
+        await load(current, force: true)
+        selection = [linkID]
+    }
+
+    /// Optimistic trash (S2.3/6.3): rows leave the cache immediately, then
+    /// the batch endpoint runs; `remoteChanged` marks the parent stale →
+    /// reload. A failure force-reloads (rows come back) and lands in
+    /// `actionError` for the view's alert.
+    func trashItems(_ ids: Set<DriveItem.ID>) async {
+        let items = selectedItems(ids)
+        guard !items.isEmpty, let ops = session.folderOps else { return }
+        let loc = current
+        var state = state(for: loc)
+        state.items.removeAll { ids.contains($0.id) }
+        folders[loc.linkID] = state
+        selection.subtract(ids)
+        do {
+            try await ops.trash(items, in: loc)
+        } catch {
+            await load(loc, force: true)
+            actionError = UserFacingError.message(for: error)
+        }
     }
 }
 

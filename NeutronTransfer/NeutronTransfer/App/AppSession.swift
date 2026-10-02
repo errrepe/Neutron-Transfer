@@ -46,6 +46,13 @@ final class AppSession {
     /// Listing service (S1.3) — created alongside the resolver, dropped on
     /// sign-out. Stateless glue: all key/link state lives in `resolver`.
     private(set) var listing: DriveListing?
+    /// Browser download orchestrator (S2.3) — created alongside the
+    /// resolver, dropped on sign-out. Holds no state of its own beyond
+    /// in-flight dedup; all progress lands in `activity`.
+    private(set) var downloads: DownloadCoordinator?
+    /// Folder write ops (create/trash, S2.3) — created alongside the
+    /// resolver, dropped on sign-out. nil ⇒ the write UI stays disabled.
+    private(set) var folderOps: FolderOperations?
     /// Classified drive roots for the shell (My Files / Photos / Computers);
     /// nil until `loadRoots` succeeds.
     private(set) var roots: DriveRoots?
@@ -134,6 +141,8 @@ final class AppSession {
         await resolver?.reset()
         resolver = nil
         listing = nil
+        downloads = nil
+        folderOps = nil
         roots = nil
         rootsError = nil
         await sessions.signOut()
@@ -197,6 +206,14 @@ final class AppSession {
         let resolver = NodeKeyResolver(source: drive, addressKeys: addressKeys)
         self.resolver = resolver
         listing = DriveListing(drive: drive, resolver: resolver)
+        downloads = DownloadCoordinator(
+            drive: drive, addressKeys: addressKeys, resolver: resolver,
+            activity: activity
+        )
+        folderOps = FolderOperations(
+            drive: drive, resolver: resolver,
+            addressKeys: addressKeys, activity: activity
+        )
     }
 
     /// Scrubs the retained password: resetBytes writes zeros into the buffer

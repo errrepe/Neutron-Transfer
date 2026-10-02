@@ -28,6 +28,10 @@ struct DownloadRecord: Codable, Sendable, Identifiable, Equatable {
     var fileCount: Int
     /// Local destination directory name (lastPathComponent, never full path).
     var destinationName: String?
+    /// Live 0…1 fraction while `state == .downloading` (S2.3); nil = no
+    /// per-block progress yet (folders report file counts instead). The
+    /// store clears it on finish/fail so done rows never render stale bars.
+    var progress: Double?
     var errorMessage: String?
     var startedAt: Date
     var updatedAt: Date
@@ -39,6 +43,7 @@ struct DownloadRecord: Codable, Sendable, Identifiable, Equatable {
         state: DownloadState = .downloading,
         fileCount: Int = 0,
         destinationName: String? = nil,
+        progress: Double? = nil,
         errorMessage: String? = nil,
         startedAt: Date = Date(),
         updatedAt: Date = Date()
@@ -49,6 +54,7 @@ struct DownloadRecord: Codable, Sendable, Identifiable, Equatable {
         self.state = state
         self.fileCount = fileCount
         self.destinationName = destinationName
+        self.progress = progress
         self.errorMessage = errorMessage
         self.startedAt = startedAt
         self.updatedAt = updatedAt

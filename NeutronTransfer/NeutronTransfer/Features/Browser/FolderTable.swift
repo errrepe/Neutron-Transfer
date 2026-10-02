@@ -1,9 +1,10 @@
-// Neutron Transfer — the drive listing as a sortable table (F7 S2.2).
+// Neutron Transfer — the drive listing as a sortable table (F7 S2.2/S2.3).
 // Columns per spec 6.3: Name (16×16 system icon + middle-truncated name +
 // lock badge for undecrypted names), Modified (monospaced digits), Size
 // (folders show "—", trailing-aligned). Selection and sort order live in
 // BrowserModel; DriveItemOrdering keeps folders first under any order.
-// S2.3 completes the context menu — for now only "Open" on folders.
+// S2.3 context menus (spec 6.3): Open / Download… / Move to Trash on a
+// selection, New Folder / Reload on the empty area (upload items in S3.1).
 import SwiftUI
 
 struct FolderTable: View {
@@ -43,8 +44,23 @@ struct FolderTable: View {
             .alignment(.trailing)
         }
         .contextMenu(forSelectionType: DriveItem.ID.self) { ids in
-            if items.contains(where: { ids.contains($0.id) && $0.isFolder }) {
-                Button("Open") { model.openSelection(ids) }
+            // Spec-6.3: an empty ids set is a right-click on the table's
+            // empty area — show the folder-level menu. Upload items land
+            // in S3.1. Selection menu: Open (folders only), Download…,
+            // divider, Move to Trash.
+            if ids.isEmpty {
+                Button("New Folder") { model.showingNewFolder = true }
+                    .disabled(!model.root.allowsWrites)
+                Divider()
+                Button("Reload") { Task { await model.reloadCurrent() } }
+            } else {
+                if items.contains(where: { ids.contains($0.id) && $0.isFolder }) {
+                    Button("Open") { model.openSelection(ids) }
+                }
+                Button("Download…") { model.downloadItems(ids) }
+                Divider()
+                Button("Move to Trash") { model.confirmingTrash = true }
+                    .disabled(!model.root.allowsWrites)
             }
         } primaryAction: { ids in
             model.openSelection(ids)

@@ -55,11 +55,15 @@ final class TransferQueueViewModel {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     self.jobs = snap
-                    // Post-operation consistency: a newly completed upload
-                    // changed the remote tree — ask the browser to reload.
+                    // Post-operation consistency (S2.3): a newly completed
+                    // upload changed its remote parent — publish the touched
+                    // linkIDs so the browser marks just those folders stale.
                     let doneNow = Set(snap.filter { $0.state == .done }.map(\.id))
-                    if !doneNow.subtracting(self.knownDone).isEmpty {
-                        self.activity?.requestBrowserRefresh()
+                    let newDone = doneNow.subtracting(self.knownDone)
+                    if !newDone.isEmpty {
+                        let parents = snap.filter { newDone.contains($0.id) }
+                            .map(\.parentLinkID)
+                        self.activity?.remoteChanged(parentLinkIDs: parents)
                     }
                     self.knownDone = doneNow
                 }
@@ -149,8 +153,8 @@ final class TransferQueueViewModel {
                 totalFiles += files.count
                 status = "Enqueued \(totalFiles) file(s) → \(dest.label)"
                 // Folder creation happened inside enqueueTree (parent→child):
-                // the remote tree changed — refresh the browser.
-                activity?.requestBrowserRefresh()
+                // the remote tree changed under the share root.
+                activity?.remoteChanged(parentLinkIDs: [dest.rootLinkID])
             } catch {
                 status = "Add failed (\(url.lastPathComponent)): \(UserFacingError.message(for: error))"
             }

@@ -25,6 +25,11 @@ struct BrowserContainerView: View {
             placement: .toolbar,
             prompt: "Filter this folder"
         )
+        // Post-operation consistency (S2.3): create/trash/upload publish
+        // the touched parents → token bumps → markStale + reload.
+        .task(id: model.remoteChangedToken) {
+            model.observeRemoteChanges()
+        }
         .environment(model)
     }
 }
