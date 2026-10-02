@@ -63,7 +63,11 @@ struct NewFolderSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("New Folder")
                 .font(.headline)
-            TextField("Folder name", text: $name)
+            // A1: the label doubles as the AX label; the visible hint is
+            // a prompt, so an empty field exposes an EMPTY AX value —
+            // not the placeholder text read as content (QA A-level).
+            TextField("Name", text: $name, prompt: Text("Folder name"))
+                .labelsHidden()
                 .textFieldStyle(.roundedBorder)
                 .focused($nameFocused)
                 .disabled(isCreating)
@@ -126,6 +130,13 @@ struct NewFolderSheet: View {
 
 #Preview("Normal — Dark") {
     NewFolderSheet { _ in }
+        .preferredColorScheme(.dark)
+}
+
+// R6/A1: field emptied by the user — the "Folder name" prompt shows in
+// place of content (the prompt is the placeholder, not the AX value).
+#Preview("Empty Field — Dark") {
+    NewFolderSheet(initialName: "") { _ in }
         .preferredColorScheme(.dark)
 }
 

@@ -9,11 +9,12 @@ struct StorageFooterView: View {
     @State private var showSignOutConfirm = false
     @State private var hasActiveTransfers = false
 
-    /// used/max as a fraction; nil when the account reports no quota.
-    private var quotaFraction: Double? {
+    /// used/max byte counts for the quota bar; nil when the account
+    /// reports no quota (bar hidden, text still renders).
+    private var quota: (used: Int64, max: Int64)? {
         guard let account = session.account,
               let max = account.maxBytes, max > 0 else { return nil }
-        return Double(account.usedBytes) / Double(max)
+        return (account.usedBytes, max)
     }
 
     var body: some View {
@@ -29,9 +30,15 @@ struct StorageFooterView: View {
                     .help("Offline sample data — nothing is sent or stored.")
             }
             #endif
-            if let fraction = quotaFraction {
-                ProgressView(value: min(fraction, 1), total: 1)
-                    .tint(quotaTint(for: fraction))
+            if let quota {
+                // M2: linearCapacity paints a filled track — far higher
+                // contrast than ProgressView's thin line in dark mode
+                // (the QA complaint). The occupancy tint is unchanged.
+                Gauge(value: Double(quota.used), in: 0...Double(quota.max)) {
+                    EmptyView()
+                }
+                .gaugeStyle(.linearCapacity)
+                .tint(quotaTint(for: Double(quota.used) / Double(quota.max)))
             }
             if let account = session.account {
                 Text(DriveFormatting.storage(used: account.usedBytes, max: account.maxBytes))

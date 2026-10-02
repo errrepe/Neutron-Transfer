@@ -34,6 +34,12 @@ struct FolderTable: View {
                             .help("This name couldn't be decrypted with your current keys.")
                     }
                 }
+                // A2: VoiceOver reads the cell as ONE element —
+                // "Invoice March.pdf, file" — instead of icon/text/badge
+                // fragments; the explicit label wins over the combined
+                // children so the caveat suffix reads once.
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(Self.nameAccessibilityLabel(for: item))
             }
             .width(min: 160, ideal: 280)
             TableColumn("Modified", value: \.modified) { item in
@@ -48,6 +54,11 @@ struct FolderTable: View {
             }
             .alignment(.trailing)
         }
+        // M3: with zero rows the zebra stripes still draw behind the
+        // ContentUnavailableView overlay — disable alternation so the
+        // empty state reads clean. The Table itself stays put: it owns
+        // the drop target and the empty-area context menu.
+        .alternatingRowBackgrounds(items.isEmpty ? .disabled : .enabled)
         .contextMenu(forSelectionType: DriveItem.ID.self) { ids in
             // Spec-6.3: an empty ids set is a right-click on the table's
             // empty area — show the folder-level menu (New Folder, the
@@ -74,5 +85,14 @@ struct FolderTable: View {
         } primaryAction: { ids in
             model.openSelection(ids)
         }
+    }
+
+    /// A2: one VoiceOver phrase for the Name cell — "Invoices, folder",
+    /// "report.pdf, file" — plus the decryption caveat when the lock
+    /// badge shows (the visible name is the "Encrypted Item" placeholder).
+    private static func nameAccessibilityLabel(for item: DriveItem) -> String {
+        var label = "\(item.name), \(item.isFolder ? "folder" : "file")"
+        if !item.isNameDecrypted { label += ", name couldn't be decrypted" }
+        return label
     }
 }

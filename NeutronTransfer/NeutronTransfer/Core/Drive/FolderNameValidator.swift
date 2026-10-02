@@ -25,7 +25,9 @@ enum FolderNameError: Error, Equatable, Sendable {
         case .reserved:
             return "“.” and “..” are reserved names."
         case .tooLong:
-            return "Folder names can’t exceed 255 bytes."
+            // M6: the limit is 255 UTF-8 BYTES — a char count would be a
+            // lie for accented names/emoji, so the copy stays unit-free.
+            return "That name is too long. Try a shorter name."
         case .alreadyExists(let name):
             return "A folder or file named “\(name)” already exists here."
         }

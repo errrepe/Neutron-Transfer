@@ -28,7 +28,14 @@ struct TransfersToolbarButton: View {
         Button("Transfers", systemImage: "arrow.up.arrow.down") {
             activity.presentTransfers.toggle()
         }
-        .help("Transfers")
+        // M4: match the View-menu wording ("Show Transfers") and say
+        // what the button does; the count rides along while items are
+        // in flight. The AX label keeps the shorter "Transfers" form.
+        .help(
+            activeCount > 0
+                ? "Show Transfers — \(activeCount) active"
+                : "Show Transfers"
+        )
         .accessibilityLabel(
             activeCount > 0 ? "Transfers, \(activeCount) active" : "Transfers"
         )

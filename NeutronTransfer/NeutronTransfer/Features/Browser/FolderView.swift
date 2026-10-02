@@ -189,11 +189,26 @@ struct FolderView: View {
                 }
             }
         case .loaded where state.items.isEmpty:
-            ContentUnavailableView(
-                "This Folder Is Empty",
-                systemImage: "folder",
-                description: Text("Drop files here or use Upload.")
-            )
+            // B3: the copy follows the root. Photos is read-only, so it
+            // must not invite uploads; a non-writable non-Photos root
+            // (none today — ShareCatalog only yields main/photos/device)
+            // keeps the plain title. Computers are writable → same copy
+            // as My Files.
+            if model.root.kind == .photos {
+                ContentUnavailableView(
+                    "No Photos",
+                    systemImage: "photo.on.rectangle",
+                    description: Text("Photos you add in Proton Drive appear here.")
+                )
+            } else if model.root.allowsWrites {
+                ContentUnavailableView(
+                    "This Folder Is Empty",
+                    systemImage: "folder",
+                    description: Text("Drop files here or use Upload.")
+                )
+            } else {
+                ContentUnavailableView("This Folder Is Empty", systemImage: "folder")
+            }
         case _ where items.isEmpty && isFiltering:
             ContentUnavailableView.search(text: model.filterText)
         default:

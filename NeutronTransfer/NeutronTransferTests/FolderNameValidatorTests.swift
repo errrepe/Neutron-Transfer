@@ -48,6 +48,9 @@ struct FolderNameValidatorTests {
         // Multibyte: 128 × "é" (2 UTF-8 bytes each) = 256 bytes → too long.
         let multibyte = String(repeating: "é", count: 128)
         #expect(FolderNameValidator.validate(multibyte) == .failure(.tooLong))
+        // M6: user-facing copy stays unit-free (the cap is in bytes,
+        // not characters) — pin the exact wording.
+        #expect(FolderNameError.tooLong.message == "That name is too long. Try a shorter name.")
     }
 
     @Test func returnsNFC() {

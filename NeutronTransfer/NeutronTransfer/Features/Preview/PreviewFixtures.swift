@@ -13,6 +13,16 @@ enum PreviewFixtures {
         maxBytes: 520_000_000_000
     )
 
+    /// The fixture Photos root — used by the browser previews for the
+    /// read-only (and R6 empty) states. Falls back to a literal so a
+    /// preview never dies on a nil fixture.
+    static var photosRoot: DriveRoot {
+        roots.photos ?? DriveRoot(
+            shareID: "share-photos", rootLinkID: "link-photos-root",
+            volumeID: "vol-photos", kind: .photos, displayName: "Photos"
+        )
+    }
+
     /// My Files + Photos + two device shares — every sidebar section filled.
     static let roots = DriveRoots(
         myFiles: DriveRoot(

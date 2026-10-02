@@ -115,11 +115,21 @@ extension BrowserContainerView {
 }
 
 #Preview("Photos — Read-Only") {
-    let photosRoot = PreviewFixtures.roots.photos ?? DriveRoot(
-        shareID: "share-photos", rootLinkID: "link-photos-root",
-        volumeID: "vol-photos", kind: .photos, displayName: "Photos"
-    )
-    BrowserContainerView(preview: .preview(root: photosRoot))
+    BrowserContainerView(preview: .preview(root: PreviewFixtures.photosRoot))
         .frame(width: 720, height: 480)
+}
+
+// R6/B3: the Photos empty state — "No Photos" + read-only banner, no
+// upload invitation.
+#Preview("Photos Empty — Light") {
+    BrowserContainerView(preview: .preview(root: PreviewFixtures.photosRoot, items: []))
+        .frame(width: 720, height: 480)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Photos Empty — Dark") {
+    BrowserContainerView(preview: .preview(root: PreviewFixtures.photosRoot, items: []))
+        .frame(width: 720, height: 480)
+        .preferredColorScheme(.dark)
 }
 #endif
