@@ -1,6 +1,7 @@
 // Neutron Transfer — FolderNameValidator offline tests (Swift Testing).
 // Pure validation rules for the New Folder sheet: trim, empty, invalid
-// characters, reserved names, UTF-8 byte cap and NFC normalization.
+// characters, reserved names, UTF-8 byte cap, NFC normalization and the
+// R5 same-folder duplicate check (folders and files alike).
 // No network, no secrets.
 import Foundation
 import Testing
@@ -57,8 +58,59 @@ struct FolderNameValidatorTests {
         #expect(got?.utf8.count == 5) // "Caf" (3) + "é" (2 UTF-8 bytes)
     }
 
+    // MARK: - R5 duplicate check
+
+    @Test func duplicateFolderNameIsRejected() {
+        #expect(
+            FolderNameValidator.validate("Invoices", existingNames: ["Invoices", "Pictures"])
+                == .failure(.alreadyExists("Invoices"))
+        )
+    }
+
+    @Test func duplicateFileNameIsRejected() {
+        // The server refuses a folder whose name collides with a FILE too
+        // (2500) — the client flags either kind of sibling.
+        #expect(
+            FolderNameValidator.validate("report.pdf", existingNames: ["report.pdf"])
+                == .failure(.alreadyExists("report.pdf"))
+        )
+    }
+
+    @Test func duplicateMatchIsNFCExact() {
+        // Decomposed input vs precomposed listing name — same node.
+        #expect(
+            FolderNameValidator.validate("Cafe\u{0301}", existingNames: ["Café"])
+                == .failure(.alreadyExists("Café"))
+        )
+        // And the reverse: an NFD listing name still matches NFC input.
+        #expect(
+            FolderNameValidator.validate("Café", existingNames: ["Cafe\u{0301}"])
+                == .failure(.alreadyExists("Café"))
+        )
+    }
+
+    @Test func caseOnlyDifferenceIsAllowed() {
+        // The server compares name hashes — the match is case-SENSITIVE.
+        let got = try? FolderNameValidator.validate(
+            "Invoices", existingNames: ["invoices", "INVOICES"]
+        ).get()
+        #expect(got == "Invoices")
+    }
+
+    @Test func structuralErrorWinsOverDuplicate() {
+        // A malformed name reports its real error even if the set happens
+        // to contain the normalized form.
+        #expect(
+            FolderNameValidator.validate("..", existingNames: [".."])
+                == .failure(.reserved)
+        )
+    }
+
     @Test func messagesAreUserFacing() {
-        for error in [FolderNameError.empty, .invalidCharacters, .reserved, .tooLong] {
+        for error in [
+            FolderNameError.empty, .invalidCharacters, .reserved, .tooLong,
+            .alreadyExists("Test"),
+        ] {
             #expect(!error.message.isEmpty)
             #expect(error.message.first?.isLowercase == false)
         }

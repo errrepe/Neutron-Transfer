@@ -6,8 +6,9 @@
 // trash confirmationDialog and the action-error alert — presentation flags
 // live on BrowserModel so the table's context menu can trigger them too.
 // S3.1 adds the Upload menu + drop-to-upload (DropOverlay while targeted).
-// Loading kicks off in .task(id:) so revisits are cheap (cache hit in
-// BrowserModel.load).
+// F7.1 R5 feeds the New Folder sheet the decrypted sibling names for its
+// live duplicate check. Loading kicks off in .task(id:) so revisits are
+// cheap (cache hit in BrowserModel.load).
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -102,7 +103,12 @@ struct FolderView: View {
                 }
             }
             .sheet(isPresented: $model.showingNewFolder) {
-                NewFolderSheet { name in
+                NewFolderSheet(
+                    // R5: live duplicate check against the decrypted
+                    // sibling names — undecrypted items stay out and the
+                    // server remains the safety net.
+                    existingNames: Set(state.items.filter(\.isNameDecrypted).map(\.name))
+                ) { name in
                     try await model.createFolder(named: name)
                 }
             }

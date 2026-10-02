@@ -1,10 +1,12 @@
-// Neutron Transfer — New Folder sheet (F7 S2.3).
+// Neutron Transfer — New Folder sheet (F7 S2.3 / F7.1 R5).
 // Small modal: name field (starts as "Untitled Folder", fully selected so
 // typing replaces it), inline validation/creation errors in red, and
 // Cancel / Create buttons — Create is the default action, disabled while
 // the name is invalid, and swaps to a spinner while the request is in
-// flight. Errors stay inline (the sheet remains open so the name can be
-// fixed); only a successful create dismisses.
+// flight. R5 adds live duplicate detection: the decrypted names already
+// in the folder come in as `existingNames` and fail validation before any
+// request goes out. Errors stay inline (the sheet remains open so the
+// name can be fixed); only a successful create dismisses.
 import AppKit // NSApp.sendAction(selectAll:) — preselects the default name
 import SwiftUI
 
@@ -13,6 +15,10 @@ struct NewFolderSheet: View {
     /// (duplicate name, network, session). The parent supplies
     /// BrowserModel.createFolder(named:).
     var onCreate: (String) async throws -> Void
+    /// Decrypted names already present in the target folder — checked
+    /// live, so a duplicate disables Create before the API call (R5).
+    /// NFC-exact, case-sensitive (FolderNameValidator).
+    let existingNames: Set<String>
 
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
@@ -23,16 +29,20 @@ struct NewFolderSheet: View {
 
     init(
         initialName: String = "Untitled Folder",
+        existingNames: Set<String> = [],
         initialError: String? = nil,
+        initiallyEdited: Bool = false,
         onCreate: @escaping (String) async throws -> Void
     ) {
         _name = State(initialValue: initialName)
         _error = State(initialValue: initialError)
+        _edited = State(initialValue: initiallyEdited)
+        self.existingNames = existingNames
         self.onCreate = onCreate
     }
 
     private var validation: Result<String, FolderNameError> {
-        FolderNameValidator.validate(name)
+        FolderNameValidator.validate(name, existingNames: existingNames)
     }
 
     /// Validation errors show once the field was touched or Create was
@@ -131,6 +141,27 @@ struct NewFolderSheet: View {
     NewFolderSheet(
         initialName: "Invoices",
         initialError: "A folder named “Invoices” already exists."
+    ) { _ in }
+    .preferredColorScheme(.dark)
+}
+
+// R5: the duplicate caught client-side — no request was sent. The error
+// comes from validation (not a thrown create), so `initiallyEdited`
+// simulates the field having been touched.
+#Preview("Duplicate (live validation) — Light") {
+    NewFolderSheet(
+        initialName: "Invoices",
+        existingNames: ["Invoices", "report.pdf"],
+        initiallyEdited: true
+    ) { _ in }
+    .preferredColorScheme(.light)
+}
+
+#Preview("Duplicate (live validation) — Dark") {
+    NewFolderSheet(
+        initialName: "Invoices",
+        existingNames: ["Invoices", "report.pdf"],
+        initiallyEdited: true
     ) { _ in }
     .preferredColorScheme(.dark)
 }
