@@ -11,7 +11,7 @@
 //     Hash (b64 SHA-256 of ENCRYPTED bytes), Token (storage JWT),
 //     URL (token in-path), BareURL (storage host), EncSignature}], …}}
 //   GET {BareURL} (storage host, Pm-Storage-Token: Token, Bearer + X-Pm-Uid,
-//     x-pm-appversion storage string) -> octet-stream encrypted SED tag-18
+//     honest x-pm-appversion) -> octet-stream encrypted SED tag-18
 //     packet (Size == wire Size; 77B for the 26B fixture).
 // Semantics: Hash == sha256(storage bytes) — NOT plaintext (proven: the
 // fixture Hash f854… != sha256(plaintext) 0532…). Decrypt mirrors

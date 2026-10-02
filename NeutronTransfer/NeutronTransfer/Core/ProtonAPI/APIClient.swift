@@ -126,7 +126,7 @@ struct APIClient: Sendable {
     /// Blocks BareURL — never hardcoded; rclone-captured /tmp/f5ref:
     /// `GET /storage/blocks` on the storage host with the block Token in
     /// the Pm-Storage-Token header, Bearer + X-Pm-Uid auth, and the
-    /// storage client string). Returns the raw encrypted SED tag-18 packet
+    /// honest x-pm-appversion). Returns the raw encrypted SED tag-18 packet
     /// (octet-stream, NOT JSON — no envelope decoding here).
     func downloadRawBlock(
         bareURL: String,
@@ -134,19 +134,7 @@ struct APIClient: Sendable {
         uid: String,
         accessToken: String
     ) async throws -> Data {
-        // BareURL has no path suffix in the capture (token selects the
-        // blob); the full Block URL embeds the same JWT in-path and also
-        // resolves. Prefer BareURL + header (upload parity).
-        let target = bareURL.isEmpty ? nil : bareURL
-        guard let target, let url = URL(string: target) else {
-            throw ProtonAPIError.transport(URLError(.badURL))
-        }
-        var req = URLRequest(url: url)
-        req.httpMethod = "GET"
-        req.setValue(token, forHTTPHeaderField: "Pm-Storage-Token")
-        req.setValue(AppVersion.storageHeaderValue, forHTTPHeaderField: "x-pm-appversion")
-        req.setValue(uid, forHTTPHeaderField: "x-pm-uid")
-        req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        let req = try blockDownloadRequest(bareURL: bareURL, token: token, uid: uid, accessToken: accessToken)
         let (data, response) = try await data(for: req)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw ProtonAPIError.transport(URLError(.badServerResponse))
@@ -163,6 +151,51 @@ struct APIClient: Sendable {
         uid: String,
         accessToken: String
     ) async throws -> Data {
+        let req = try blockDownloadURLRequest(url: url, token: token, uid: uid, accessToken: accessToken)
+        let (data, response) = try await data(for: req)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw ProtonAPIError.transport(URLError(.badServerResponse))
+        }
+        return data
+    }
+
+    /// Builds the storage-host block GET for a BareURL. Header parity with
+    /// ProtonDriveApps/sdk `StorageApiClient.GetBlobStreamAsync`
+    /// (client/cs/src/Proton.Drive.Sdk/Api/Storage/StorageApiClient.cs):
+    /// the SDK sends only `pm-storage-token`; we additionally send Bearer +
+    /// x-pm-uid (upload parity) and the honest x-pm-appversion — never a
+    /// foreign client string.
+    func blockDownloadRequest(
+        bareURL: String,
+        token: String,
+        uid: String,
+        accessToken: String
+    ) throws -> URLRequest {
+        // BareURL has no path suffix in the capture (token selects the
+        // blob); the full Block URL embeds the same JWT in-path and also
+        // resolves. Prefer BareURL + header (upload parity).
+        let target = bareURL.isEmpty ? nil : bareURL
+        guard let target, let url = URL(string: target) else {
+            throw ProtonAPIError.transport(URLError(.badURL))
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(token, forHTTPHeaderField: "Pm-Storage-Token")
+        req.setValue(AppVersion.headerValue, forHTTPHeaderField: "x-pm-appversion")
+        req.setValue(uid, forHTTPHeaderField: "x-pm-uid")
+        req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        return req
+    }
+
+    /// Builds the storage-host block GET for a full block URL (the token is
+    /// embedded in-path; the header token is still sent for parity when
+    /// non-empty). Same honest headers as `blockDownloadRequest`.
+    func blockDownloadURLRequest(
+        url: String,
+        token: String,
+        uid: String,
+        accessToken: String
+    ) throws -> URLRequest {
         guard let reqURL = URL(string: url) else {
             throw ProtonAPIError.transport(URLError(.badURL))
         }
@@ -171,14 +204,10 @@ struct APIClient: Sendable {
         if !token.isEmpty {
             req.setValue(token, forHTTPHeaderField: "Pm-Storage-Token")
         }
-        req.setValue(AppVersion.storageHeaderValue, forHTTPHeaderField: "x-pm-appversion")
+        req.setValue(AppVersion.headerValue, forHTTPHeaderField: "x-pm-appversion")
         req.setValue(uid, forHTTPHeaderField: "x-pm-uid")
         req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await data(for: req)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw ProtonAPIError.transport(URLError(.badServerResponse))
-        }
-        return data
+        return req
     }
 
     // MARK: - plumbing
