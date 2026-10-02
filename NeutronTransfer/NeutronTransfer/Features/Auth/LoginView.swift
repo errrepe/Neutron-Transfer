@@ -1,67 +1,174 @@
-// Neutron Transfer — login screen (legacy layout until the S4.1 redesign).
-// Third-party disclosure up front (SDK third-party rules). Credentials go to
-// AppSession; the password field clears immediately — the unlock copy lives
-// as zeroed-after-use Data inside AppSession.pendingPassword, never here.
+// Neutron Transfer — login screen (F7 S4.1, spec 6.6).
+// Centered auth card: app icon + title, grouped credentials form, inline
+// error (announced to VoiceOver), prominent Sign In that swaps to a
+// spinner while SRP runs, then the third-party disclaimer. Credentials go
+// to AppSession; the password field clears on submit — the retained copy
+// lives as zeroed-after-use Data inside AppSession.pendingPassword.
+import AppKit // NSApp.applicationIconImage — header icon
 import SwiftUI
 
 struct LoginView: View {
     @Environment(AppSession.self) private var session
     @State private var username = ""
     @State private var password = ""
-    @State private var totp = ""
+    @FocusState private var focus: Field?
 
-    /// SRP or key-unlock in flight: fields stay visible but inert.
-    private var isBusy: Bool {
-        session.phase == .signingIn || session.phase == .unlocking
+    private enum Field {
+        case username, password
+    }
+
+    /// SRP handshake in flight: the button swaps to a spinner and disables.
+    private var isSigningIn: Bool {
+        session.phase == .signingIn
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 16) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 64, height: 64)
+                .accessibilityHidden(true)
             Text("Neutron Transfer")
-                .font(.title)
-            Text("This is a third-party application not officially supported by Proton.")
-                .font(.caption)
+                .font(.largeTitle.weight(.semibold))
+            Text("Sign in with your Proton account")
                 .foregroundStyle(.secondary)
-            switch session.phase {
-            case .needsTwoFactor:
-                Text("Two-factor code required").font(.headline)
-                TextField("TOTP code", text: $totp)
-                    .textFieldStyle(.roundedBorder)
-                HStack(spacing: 12) {
-                    Button("Verify") {
-                        let code = totp
-                        Task { await session.submitTwoFactor(code: code) }
-                    }
-                    Button("Cancel") {
-                        Task { await session.cancelTwoFactor() }
-                    }
-                }
-            case .signedOut, .signingIn, .unlocking, .signedIn:
-                TextField("Email or username", text: $username)
-                    .textFieldStyle(.roundedBorder)
-                SecureField("Password", text: $password)
-                    .textFieldStyle(.roundedBorder)
-                Button(isBusy ? "Signing in…" : "Sign In") {
-                    let name = username
-                    let pwd = password
-                    // Clear the field up front: the retained copy lives in
-                    // AppSession.pendingPassword (Data, zeroed after unlock).
-                    password = ""
-                    Task { await session.signIn(username: name, password: pwd) }
-                }
-                .disabled(isBusy)
-                if let error = session.loginError {
-                    Text(error).font(.caption).foregroundStyle(.orange)
-                }
+            // Grouped Form collapsed the SecureField row once the error
+            // label appeared — the spec's sanctioned fallback: plain
+            // roundedBorder fields at .large.
+            VStack(spacing: 8) {
+                TextField(
+                    "Email or username",
+                    text: $username,
+                    prompt: Text("Email or username")
+                )
+                .textContentType(.username)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.large)
+                .focused($focus, equals: .username)
+                .onSubmit { focus = .password }
+                .accessibilityLabel("Email or username")
+                SecureField(
+                    "Password",
+                    text: $password,
+                    prompt: Text("Password")
+                )
+                .textContentType(.password)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.large)
+                .focused($focus, equals: .password)
+                .onSubmit(signIn)
+                .accessibilityLabel("Password")
             }
-            Spacer()
+            .frame(width: 360)
+            if let error = session.loginError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 360)
+            }
+            Button(action: signIn) {
+                Group {
+                    if isSigningIn {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Text("Sign In")
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
+            .disabled(username.isEmpty || password.isEmpty || isSigningIn)
+            .frame(width: 360)
+            Divider()
+                .frame(width: 360)
+            Text("Neutron Transfer is an independent, open-source app. It is not affiliated with or endorsed by Proton AG. Your password is used only to sign in and unlock your keys on this Mac — it is never stored.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 380)
         }
-        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(minWidth: 420, minHeight: 320)
+        .task {
+            focus = .username
+            // A 2FA failure lands back here with the error already set —
+            // onChange missed it while the view was unmounted, so announce
+            // it on appear too.
+            announce(session.loginError)
+        }
+        .onChange(of: session.loginError) { _, error in
+            announce(error)
+        }
+    }
+
+    /// Captures the credentials and hands them to AppSession; the field
+    /// copy clears up front (the retained bytes live in pendingPassword).
+    private func signIn() {
+        let name = username
+        let pwd = password
+        password = ""
+        Task { await session.signIn(username: name, password: pwd) }
+    }
+
+    /// VoiceOver must hear failures — the inline label alone is easy to
+    /// miss while focus sits inside a field.
+    private func announce(_ message: String?) {
+        guard let message else { return }
+        AccessibilityNotification.Announcement(message).post()
     }
 }
 
-#Preview {
-    LoginView()
-        .environment(AppSession.preview())
+#if DEBUG
+extension LoginView {
+    /// Preview seam: seeds the username field so the "filled" states render
+    /// without typing. Never ships (DEBUG only).
+    init(initialUsername: String) {
+        _username = State(initialValue: initialUsername)
+    }
 }
+
+#Preview("Empty — Light") {
+    LoginView()
+        .environment(PreviewFixtures.session(phase: .signedOut))
+        .preferredColorScheme(.light)
+}
+
+#Preview("Empty — Dark") {
+    LoginView()
+        .environment(PreviewFixtures.session(phase: .signedOut))
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Error — Light") {
+    let session = PreviewFixtures.session(phase: .signedOut)
+    session.loginError = "Incorrect login credentials. Please try again."
+    return LoginView(initialUsername: "raphael")
+        .environment(session)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Error — Dark") {
+    let session = PreviewFixtures.session(phase: .signedOut)
+    session.loginError = "Incorrect login credentials. Please try again."
+    return LoginView(initialUsername: "raphael")
+        .environment(session)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Signing In — Light") {
+    LoginView(initialUsername: "raphael")
+        .environment(PreviewFixtures.session(phase: .signingIn))
+        .preferredColorScheme(.light)
+}
+
+#Preview("Signing In — Dark") {
+    LoginView(initialUsername: "raphael")
+        .environment(PreviewFixtures.session(phase: .signingIn))
+        .preferredColorScheme(.dark)
+}
+#endif

@@ -1,18 +1,29 @@
-// Neutron Transfer — root switch between signed-in shell and login (F7).
-// Only `.signedIn` shows the app; every other phase (signedOut, signingIn,
-// needsTwoFactor, unlocking) renders the login screen, which owns its own
-// busy/prompt sub-states.
+// Neutron Transfer — root switch between the signed-in shell and the auth
+// flow (F7 S4.1). One screen per phase: login covers signedOut + signingIn
+// (its own busy sub-state), needsTwoFactor gets the TOTP prompt, unlocking
+// the key-decryption spinner — all crossfading on a short opacity.
 import SwiftUI
 
 struct RootView: View {
     @Environment(AppSession.self) private var session
 
     var body: some View {
-        switch session.phase {
-        case .signedIn:
-            MainView()
-        case .signedOut, .signingIn, .needsTwoFactor, .unlocking:
-            LoginView()
+        ZStack {
+            switch session.phase {
+            case .signedIn:
+                MainView()
+                    .transition(.opacity)
+            case .signedOut, .signingIn:
+                LoginView()
+                    .transition(.opacity)
+            case .needsTwoFactor:
+                TwoFactorView()
+                    .transition(.opacity)
+            case .unlocking:
+                UnlockingView()
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: session.phase)
     }
 }
