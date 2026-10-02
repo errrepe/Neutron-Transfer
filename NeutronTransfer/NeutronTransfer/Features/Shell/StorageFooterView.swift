@@ -43,6 +43,10 @@ struct StorageFooterView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        // S4.2: the App-menu "Sign Out…" command routes here so it lands
+        // on this same confirmationDialog (with the active-transfers
+        // warning) instead of a second, divergent flow.
+        .focusedSceneValue(\.requestSignOut, beginSignOut)
     }
 
     private var accountRow: some View {
@@ -84,6 +88,9 @@ struct StorageFooterView: View {
     /// Reads the queue snapshot right before confirming — the TransferQueue
     /// actor has no synchronous job-state read, so the check runs on tap
     /// (no polling). Downloads in flight count as active transfers too.
+    /// `@MainActor`: published as a focusedSceneValue for the App-menu
+    /// "Sign Out…" command, which invokes it from a MainActor context.
+    @MainActor
     private func beginSignOut() {
         Task {
             let jobs = await session.queue.snapshot()

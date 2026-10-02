@@ -123,6 +123,10 @@ struct FolderView: View {
             } message: { message in
                 Text(message)
             }
+            // S4.2: publish this browser to the menu bar (AppCommands).
+            // Every FolderView in the stack shares the same model, so the
+            // focused scene's value is unambiguous.
+            .focusedSceneValue(\.browserModel, model)
             .task(id: location) {
                 await model.load(location)
             }

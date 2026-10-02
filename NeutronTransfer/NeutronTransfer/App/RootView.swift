@@ -25,5 +25,9 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: session.phase)
+        // S4.2: publish the session for app-level menu commands (Sign
+        // Out, Show Transfers) — they must work even where no BrowserModel
+        // is on screen (e.g. the root-load error state).
+        .focusedSceneValue(\.appSession, session)
     }
 }
