@@ -53,6 +53,11 @@ final class AppSession {
     /// Folder write ops (create/trash, S2.3) — created alongside the
     /// resolver, dropped on sign-out. nil ⇒ the write UI stays disabled.
     private(set) var folderOps: FolderOperations?
+    /// Upload orchestrator (S3.1) — created alongside the resolver,
+    /// stopped + dropped on sign-out. Owns the queue's live uploader and
+    /// snapshot listener so completed uploads mark their remote parents
+    /// stale; nil ⇒ the upload UI stays disabled.
+    private(set) var uploads: UploadCoordinator?
     /// Classified drive roots for the shell (My Files / Photos / Computers);
     /// nil until `loadRoots` succeeds.
     private(set) var roots: DriveRoots?
@@ -138,11 +143,13 @@ final class AppSession {
     func signOut(reason: String? = nil) async {
         await queue.pauseAll()
         await queue.setUploader(nil)
+        await uploads?.stop()
         await resolver?.reset()
         resolver = nil
         listing = nil
         downloads = nil
         folderOps = nil
+        uploads = nil
         roots = nil
         rootsError = nil
         await sessions.signOut()
@@ -214,6 +221,15 @@ final class AppSession {
             drive: drive, resolver: resolver,
             addressKeys: addressKeys, activity: activity
         )
+        // S3.1: the coordinator wires the queue's live uploader + snapshot
+        // listener for the whole session — jobs persist across sign-ins,
+        // so start() also catches up `jobs`/`knownDone` from disk.
+        let coordinator = UploadCoordinator(
+            queue: queue, drive: drive, addressKeys: addressKeys,
+            resolver: resolver, activity: activity
+        )
+        uploads = coordinator
+        await coordinator.start()
     }
 
     /// Scrubs the retained password: resetBytes writes zeros into the buffer

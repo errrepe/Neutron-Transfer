@@ -26,6 +26,9 @@ final class TransferActivityStore {
     private(set) var remoteChangedParents: Set<String> = []
     /// Incremented on every `remoteChanged` — views key `.task(id:)` on it.
     private(set) var remoteChangedToken = 0
+    /// Set by UploadCoordinator on intake (S3.1); S3.2's toolbar button
+    /// binds the transfers popover to this flag.
+    var presentTransfers = false
 
     func downloadStarted(name: String, kind: DownloadKind, destination: URL?) -> UUID {
         let rec = DownloadRecord(

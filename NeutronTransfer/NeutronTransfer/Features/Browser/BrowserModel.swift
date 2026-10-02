@@ -207,6 +207,26 @@ final class BrowserModel {
         Task { await downloads.download(items) }
     }
 
+    /// Upload intake (S3.1): the shared files/folders picker, then enqueue
+    /// into the current folder via the session's UploadCoordinator.
+    /// No-ops on read-only roots (Photos) or when uploads aren't wired.
+    func uploadPanel(folders: Bool) async {
+        guard root.allowsWrites, session.uploads != nil else { return }
+        let urls = await Panels.chooseUploadItems(folders: folders)
+        await upload(urls: urls)
+    }
+
+    /// Enqueues dropped/picked URLs into `current` (S3.1). The breadcrumb
+    /// ("My Files › Projects") is computed here — the coordinator only
+    /// stores the label for the transfers panel. Guards read-only roots so
+    /// a stray drop on Photos never reaches the queue.
+    func upload(urls: [URL]) async {
+        guard root.allowsWrites, !urls.isEmpty, let uploads = session.uploads else { return }
+        let destination = current
+        let breadcrumb = ancestors(of: destination).map(\.name).joined(separator: " › ")
+        await uploads.upload(urls: urls, to: destination, breadcrumb: breadcrumb)
+    }
+
     /// Creates a folder named `name` in the current folder, refetches it
     /// and selects the new row. Throws raw — the sheet maps via
     /// UserFacingError and stays open so the name can be fixed.

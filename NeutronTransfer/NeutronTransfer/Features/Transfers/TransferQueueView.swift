@@ -172,16 +172,11 @@ struct TransferQueueView: View {
         }
     }
 
+    /// Provider → URLs moved to `UploadCoordinator.droppedFileURLs` (S3.1)
+    /// so the folder-table drop and this legacy sheet share one path.
     private func loadDropped(_ providers: [NSItemProvider]) {
         Task {
-            var urls: [URL] = []
-            for p in providers {
-                guard p.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) else { continue }
-                if let item = try? await p.loadItem(forTypeIdentifier: UTType.fileURL.identifier),
-                   let url = (item as? URL) ?? (item as? NSURL as URL?) {
-                    urls.append(url)
-                }
-            }
+            let urls = await UploadCoordinator.droppedFileURLs(providers)
             await model.add(urls: urls)
         }
     }

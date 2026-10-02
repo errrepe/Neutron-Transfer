@@ -4,7 +4,8 @@
 // (folders show "—", trailing-aligned). Selection and sort order live in
 // BrowserModel; DriveItemOrdering keeps folders first under any order.
 // S2.3 context menus (spec 6.3): Open / Download… / Move to Trash on a
-// selection, New Folder / Reload on the empty area (upload items in S3.1).
+// selection; S3.1 fills the empty-area menu with New Folder / Upload
+// Files… / Upload Folder… / Reload.
 import SwiftUI
 
 struct FolderTable: View {
@@ -45,11 +46,15 @@ struct FolderTable: View {
         }
         .contextMenu(forSelectionType: DriveItem.ID.self) { ids in
             // Spec-6.3: an empty ids set is a right-click on the table's
-            // empty area — show the folder-level menu. Upload items land
-            // in S3.1. Selection menu: Open (folders only), Download…,
-            // divider, Move to Trash.
+            // empty area — show the folder-level menu (New Folder, the
+            // S3.1 upload pair, Reload). Selection menu: Open (folders
+            // only), Download…, divider, Move to Trash.
             if ids.isEmpty {
                 Button("New Folder") { model.showingNewFolder = true }
+                    .disabled(!model.root.allowsWrites)
+                Button("Upload Files…") { Task { await model.uploadPanel(folders: false) } }
+                    .disabled(!model.root.allowsWrites)
+                Button("Upload Folder…") { Task { await model.uploadPanel(folders: true) } }
                     .disabled(!model.root.allowsWrites)
                 Divider()
                 Button("Reload") { Task { await model.reloadCurrent() } }

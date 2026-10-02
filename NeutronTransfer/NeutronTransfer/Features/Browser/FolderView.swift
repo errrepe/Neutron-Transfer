@@ -1,26 +1,29 @@
-// Neutron Transfer — one folder screen in the browser stack (F7 S2.2/S2.3).
+// Neutron Transfer — one folder screen in the browser stack (F7 S2.2–S3.1).
 // FolderTable plus the spec-6.4 overlay states (loading / empty / filtered
 // / error), the window title + item-count subtitle, the title-menu
-// breadcrumb and the Photos read-only banner. S2.3 adds the action toolbar
+// breadcrumb and the Photos read-only banner. S2.3 added the action toolbar
 // (New Folder / Download / Trash / Reload), the New Folder sheet, the
 // trash confirmationDialog and the action-error alert — presentation flags
 // live on BrowserModel so the table's context menu can trigger them too.
+// S3.1 adds the Upload menu + drop-to-upload (DropOverlay while targeted).
 // Loading kicks off in .task(id:) so revisits are cheap (cache hit in
 // BrowserModel.load).
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct FolderView: View {
     let location: DriveLocation
 
     @Environment(BrowserModel.self) private var model
+    /// True while a file drag hovers the table — drives DropOverlay.
+    @State private var isTargeted = false
 
     private var state: BrowserModel.FolderState { model.state(for: location) }
     private var items: [DriveItem] { model.visibleItems(for: location) }
 
     var body: some View {
         @Bindable var model = model
-        return FolderTable(items: items)
-            .overlay { stateOverlay }
+        return tableWithUploadDrop
             .safeAreaInset(edge: .top, spacing: 0) {
                 if model.root.kind == .photos {
                     Label("Photos is read-only in Neutron Transfer.", systemImage: "info.circle")
@@ -41,9 +44,21 @@ struct FolderView: View {
                 }
             }
             .toolbar {
-                // Spec-6.2 order (Upload lands in S3.1): New Folder,
-                // Download, Trash, Reload. All act on `model.current` —
-                // the topmost FolderView owns the toolbar.
+                // Spec-6.2 order: Upload, New Folder, Download, Trash,
+                // Reload. All act on `model.current` — the topmost
+                // FolderView owns the toolbar.
+                ToolbarItem(placement: .primaryAction) {
+                    Menu("Upload", systemImage: "arrow.up.doc") {
+                        Button("Upload Files…") {
+                            Task { await model.uploadPanel(folders: false) }
+                        }
+                        Button("Upload Folder…") {
+                            Task { await model.uploadPanel(folders: true) }
+                        }
+                    }
+                    .help("Uploading to Photos isn't supported yet.")
+                    .disabled(!model.root.allowsWrites)
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button("New Folder", systemImage: "folder.badge.plus") {
                         model.showingNewFolder = true
@@ -106,6 +121,29 @@ struct FolderView: View {
             .task(id: location) {
                 await model.load(location)
             }
+    }
+
+    /// The listing with the S3.1 drop-to-upload wiring. On read-only
+    /// roots (Photos) the modifier is omitted entirely: no highlight and
+    /// the drop is refused — there is nothing to accept it onto.
+    /// `model.root` is fixed for the view's lifetime (`.id(root.id)`
+    /// rebuilds the stack on root change), so the conditional is stable.
+    @ViewBuilder
+    private var tableWithUploadDrop: some View {
+        let table = FolderTable(items: items)
+            .overlay { stateOverlay }
+            .overlay { if isTargeted { DropOverlay(location: location) } }
+        if model.root.allowsWrites {
+            table.onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
+                Task {
+                    let urls = await UploadCoordinator.droppedFileURLs(providers)
+                    await model.upload(urls: urls)
+                }
+                return true
+            }
+        } else {
+            table
+        }
     }
 
     /// Spec-6.4 states, drawn over the table. Cached rows stay visible
