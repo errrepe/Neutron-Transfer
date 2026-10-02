@@ -26,10 +26,9 @@ See `docs/ROADMAP.md`.
 
 ## How to test
 
-- Offline (sem rede, sem segredos): `swift test --package-path /tmp/nt-tests`
-  (esperado 88/88 — 68 anteriores + 20 F6). O pacote usa symlinks para os
-  fontes do repo; `UserFacingError`, `DownloadRecord` e `F6HardeningTests`
-  já linkados.
+- Offline (sem rede, sem segredos): `swift test` na raiz do repo
+  (esperado 100/100). O `Package.swift` da raiz compila
+  `NeutronTransfer/NeutronTransfer/Core/` direto — sem symlinks, sem Xcode.
 - Build: via Xcode MCP, scheme `NeutronTransfer`, DerivedData externo
   `/Volumes/SSD 4TB/DEV/DerivedData` (sem builds concorrentes, sem commit).
 - Live (1 login SRP; espaçar ~11min entre SRPs frescos; nunca em disco):

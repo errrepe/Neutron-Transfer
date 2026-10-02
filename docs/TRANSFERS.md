@@ -145,7 +145,7 @@ Arquivos: `Core/Transfers/TransferQueue.swift` (ator + `TransferFailure` +
 `Core/Transfers/DriveUploadAdapter.swift` (ponte live),
 `Features/Transfers/TransferQueueView{,Model}.swift` (aba Uploads),
 `NeutronTransferTests/TransferQueueTests.swift` (18 testes; suite 59/59 via
-`/tmp/nt-tests` + `swift test`; build Xcode verde, scheme `NeutronTransfer`,
+`swift test`; build Xcode verde, scheme `NeutronTransfer`,
 DerivedData externo).
 
 - Job: arquivo local → share/parent, estados
@@ -192,7 +192,7 @@ reassemble + destino + escrita atômica), `Core/Transfers/DriveDownloadAdapter.s
 `Core/ProtonAPI/AppVersion.swift` (`storageHeaderValue`),
 `Features/Browser/DriveBrowserView{,Model}.swift` (botão Download por linha + progresso),
 `NeutronTransferTests/FileDownloadTests.swift` (9 testes; suite 68/68 via
-`/tmp/nt-tests` + `swift test` — 59 anteriores intactos; build Xcode verde,
+`swift test` — 59 anteriores intactos; build Xcode verde,
 scheme `NeutronTransfer`, DerivedData externo).
 
 - Descoberta (0 logins SRP frescos — token em cache de 23:55 reutilizado):
@@ -241,7 +241,7 @@ Arquivos novos: `Core/Transfers/UserFacingError.swift` (mensagens acionáveis),
 `Core/Transfers/DownloadRecord.swift` (modelo puro),
 `Features/Transfers/TransferActivityStore.swift` (histórico + refresh),
 `NeutronTransferTests/F6HardeningTests.swift` (25 testes; suite 93/93 via
-`/tmp/nt-tests` + `swift test` — sem regressão; build Xcode verde,
+`swift test` — sem regressão; build Xcode verde,
 scheme `NeutronTransfer`, DerivedData externo).
 Alterados: `DriveModels.ShareMetadata` (Bool tolerante),
 `TransferQueueView{,Model}` (aba Transfers unificada),
@@ -328,9 +328,9 @@ Alterados: `DriveModels.ShareMetadata` (Bool tolerante),
   `api 2000` esperado (gate). Roundtrip `0/2` (linha 37); draft state=0
   `3UaNbhkZFWhbrHmkKDQgIQ` + trash do draft do gate pendentes (trash do gate
   falhou com 2501 signature-address, linha 33 — retry após relogin).
-- Como testar (offline): `swift test --package-path /tmp/nt-tests`
-  (symlinks incluem `UserFacingError`, `DownloadRecord`, `F6HardeningTests`;
-   93/93 esperado) + build Xcode MCP scheme `NeutronTransfer`
+- Como testar (offline): `swift test` na raiz do repo (o `Package.swift`
+  compila `Core/` direto; 93/93 esperado) + build Xcode MCP scheme
+  `NeutronTransfer`
   (DerivedData `/Volumes/SSD 4TB/DEV/DerivedData`, sem builds concorrentes).
 
 ## 10. F6-fix — `runModal` travava a main thread (corrigido 2026-10-01, offline)
@@ -353,7 +353,7 @@ morre (abas, Reload, botões), só AX/screenshots respondem.
   (`Core/Transfers/PanelIntake.swift`: `downloadDestination(responseOK:url:)`,
   `uploadURLs(responseOK:urls:)`, `downloadCancelledStatus(rowName:)`), coberta
   por `NeutronTransferTests/PanelIntakeTests.swift` (7 testes Swift Testing;
-  suite 100/100 via `/tmp/nt-tests` — 93 anteriores intactos; build Xcode
+  suite 100/100 via `swift test` — 93 anteriores intactos; build Xcode
   verde, scheme `NeutronTransfer`, DerivedData externo).
 - Auditoria MainActor nos paths de UI: `panel.url` após cancel agora guarda
   `response == .OK` primeiro (valor stale ignorado); download segura

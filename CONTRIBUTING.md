@@ -49,9 +49,13 @@
   vetores RFC (AES-KW §4.1), inteiros vs Python, bcrypt vs implementação C de
   referência, S2K/KDF/ECDH interop sintético, Ed25519 roundtrip, fingerprints.
   Sem rede, sem segredos — seguro rodar sempre.
-- O target de testes ainda não está no scheme gerenciado pelo bridge MCP
-  (TODO: fiar `NeutronTransferTests` no Test action). Enquanto isso, loop local:
-  pacote SPM temporário com symlinks para `Sources/` + `Tests/` e `rtk swift test`.
+- Loop local: `rtk swift test` na **raiz do repo**. O `Package.swift` da raiz
+  compila `NeutronTransfer/NeutronTransfer/Core/` como módulo `NeutronTransfer`
+  e a suite `NeutronTransferTests/` — sem Xcode, sem scheme.
+- O target `NeutronTransferTests` do `.xcodeproj` não tem host/`TEST_HOST`
+  fiado ao app, então `@testable import` não linka sob Xcode — `swift test`
+  é o caminho canônico da suite offline (o scheme compartilhado
+  `NeutronTransfer` não lista testables de propósito).
 - Snippets Xcode (`RunCodeSnippet`) têm watchdog de ~5s no host de preview:
   para fluxos longos (SRP ~20s debug) usar o probe CLI com `-O`. Como não há
   Keychain, cada verificação live exige login fresco — espaçar (rate-limit
