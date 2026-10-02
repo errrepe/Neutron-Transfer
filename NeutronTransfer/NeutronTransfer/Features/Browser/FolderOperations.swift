@@ -35,9 +35,9 @@ struct FolderOperations {
 
     /// Creates `name` under `parent`, returning the new folder's linkID.
     /// Same createFolder arguments as DriveUploadAdapter.ensureFolder
-    /// (parent keyring + hash key + the share's signature identity), minus
-    /// the automatic " (1)" suffix retries — a duplicate name surfaces as
-    /// `FolderOperationError.duplicateName` instead of a silent rename.
+    /// (parent keyring + hash key + the share's signature identity), but
+    /// without the merge-on-duplicate probe — a duplicate name surfaces as
+    /// `FolderOperationError.duplicateName` instead of a silent merge.
     /// After the POST, the fresh folder resolves through the shared
     /// resolver (getLink → unlockNode → hash key, inside `folder(...)`) and
     /// is registered, so later downloads/ops hit the memo, not the network.
@@ -80,13 +80,11 @@ struct FolderOperations {
         activity.remoteChanged(parentLinkIDs: [parent.linkID])
     }
 
-    /// Duplicate-folder detection: the Proton Drive SDKs define code 2500
-    /// (AlreadyExists → NodeWithSameNameExists; ProtonDriveApps/sdk
-    /// DriveApiResponseCodes). Belt-and-braces fallback: any `.api` error
-    /// whose text contains "exist" in case a variant deployment differs.
+    /// Maps the createFolder error for UI. Duplicate detection lives in
+    /// FolderConflictPolicy.isDuplicateName (single source of truth, shared
+    /// with the upload adapter's merge probe — F7.1 R4).
     static func mapCreateError(_ error: ProtonAPIError, name: String) -> Error {
-        if case let .api(code, message) = error,
-           code == 2500 || message.localizedCaseInsensitiveContains("exist") {
+        if FolderConflictPolicy.isDuplicateName(error) {
             return FolderOperationError.duplicateName(name)
         }
         return error

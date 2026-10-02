@@ -59,40 +59,48 @@ actor DriveUploadAdapter: TransferUploader, RemoteFolderCreator {
 
     // MARK: - RemoteFolderCreator
 
-    /// Creates `name` under `parentLinkID`, retrying with ` (1)`/` (2)`
-    /// suffixes on API errors (best-effort duplicate handling — the exact
-    /// duplicate-name code is still VARIANT-UNCERTAIN; the live battery
-    /// confirms it in F4.5). Transport errors throw immediately.
+    /// Creates `name` under `parentLinkID`, or MERGES when the name is
+    /// already taken by a folder (F7.1 R4 — same as the Proton web UI and
+    /// the Finder copying into an existing folder). One create attempt;
+    /// on the duplicate-name answer (FolderConflictPolicy.isDuplicateName,
+    /// code 2500) the parent's children are listed and decrypted exactly
+    /// like DriveListing.children does (shared decryptedChildren helper),
+    /// and FolderConflictPolicy.resolve picks reuse-vs-fail. Any other
+    /// error rethrows as-is — no suffix renaming, ever.
     func ensureFolder(name: String, parentLinkID: String, shareID: String) async throws -> String {
         let parent = try await resolver.folder(shareID: shareID, linkID: parentLinkID)
-        var lastError: Error = TransferFailure.permanent("unreachable")
-        for candidate in [name, "\(name) (1)", "\(name) (2)"] {
-            do {
-                let created = try await drive.createFolder(
-                    shareID: shareID,
-                    parentLinkID: parentLinkID,
-                    name: candidate,
-                    parentKeys: parent.keys,
-                    parentHashKey: parent.hashKey,
-                    addressKeys: addressKeys,
-                    signatureAddress: parent.signatureEmail,
-                    signatureEmail: parent.signatureEmail
-                )
-                // Resolve the fresh folder (getLink + unlock + hash key)
-                // and register it, so later uploads into it hit the cache.
-                let ctx = try await resolver.folder(shareID: shareID, linkID: created.linkID)
-                await resolver.register(createdFolder: ctx)
-                return created.linkID
-            } catch let e as ProtonAPIError {
-                switch e {
-                case .api:
-                    lastError = e // maybe a duplicate — try the next suffix
-                default:
-                    throw e
-                }
+        let linkID: String
+        do {
+            let created = try await drive.createFolder(
+                shareID: shareID,
+                parentLinkID: parentLinkID,
+                name: name,
+                parentKeys: parent.keys,
+                parentHashKey: parent.hashKey,
+                addressKeys: addressKeys,
+                signatureAddress: parent.signatureEmail,
+                signatureEmail: parent.signatureEmail
+            )
+            linkID = created.linkID
+        } catch {
+            guard FolderConflictPolicy.isDuplicateName(error) else { throw error }
+            let children = try await DriveListing.decryptedChildren(
+                drive: drive, resolver: resolver,
+                shareID: shareID, linkID: parentLinkID
+            )
+            switch FolderConflictPolicy.resolve(name: name, children: children) {
+            case let .reuse(existingID):
+                linkID = existingID
+            case let .fail(message):
+                throw TransferFailure.permanent(message)
             }
         }
-        throw lastError
+        // Resolve the folder context (getLink + unlock + hash key — its
+        // link is already in the resolver's cache after a merge listing)
+        // and register it, so later uploads into it hit the memo.
+        let ctx = try await resolver.folder(shareID: shareID, linkID: linkID)
+        await resolver.register(createdFolder: ctx)
+        return linkID
     }
 
     // MARK: - local files

@@ -30,24 +30,38 @@ actor DriveListing {
         return ShareCatalog.roots(from: metas, mainShareIDs: mainShareIDs)
     }
 
-    /// Active children of a folder with decrypted names. Feeding the fetched
-    /// links into the resolver's cache lets a later nodeKeys/folder lookup on
-    /// a child resolve without a getLink. Names decrypt with the PARENT
-    /// (location) keyring — a failure yields DriveItem's "Encrypted Item".
+    /// Active children of a folder with decrypted names.
     /// `listChildren` already aggregates all pages (stops on first empty).
     func children(of location: DriveLocation) async throws -> [DriveItem] {
-        let links = try await drive.listChildren(
-            shareID: location.shareID, linkID: location.linkID
-        ).filter(\.isActive)
-        await resolver.remember(links)
-        let keys = try await resolver.nodeKeys(
+        try await Self.decryptedChildren(
+            drive: drive, resolver: resolver,
             shareID: location.shareID, linkID: location.linkID
         )
+    }
+
+    /// Shared "list + decrypt names" pass, also used by the upload
+    /// adapter's folder-conflict probe (F7.1 R4). Feeding the fetched links
+    /// into the resolver's cache lets a later nodeKeys/folder lookup on a
+    /// child resolve without a getLink. Names decrypt with the PARENT
+    /// (location) keyring — a failure yields DriveItem's "Encrypted Item".
+    /// Nonisolated async: the decrypt work runs on the CALLER's executor —
+    /// both callers are actors, so CPU work never touches the main thread.
+    static func decryptedChildren(
+        drive: DriveClient,
+        resolver: NodeKeyResolver,
+        shareID: String,
+        linkID: String
+    ) async throws -> [DriveItem] {
+        let links = try await drive.listChildren(
+            shareID: shareID, linkID: linkID
+        ).filter(\.isActive)
+        await resolver.remember(links)
+        let keys = try await resolver.nodeKeys(shareID: shareID, linkID: linkID)
         let candidates = keys.compactMap(\.candidate)
         return links.map { link in
             DriveItem(
                 link: link,
-                shareID: location.shareID,
+                shareID: shareID,
                 decryptedName: try? DecryptChain.decryptName(
                     link, parentCandidates: candidates
                 )

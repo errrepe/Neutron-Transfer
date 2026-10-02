@@ -172,8 +172,9 @@ protocol TransferUploader: Sendable {
 }
 
 /// Creates (or returns the existing) remote folder under a parent.
-/// Returns the folder's LinkID. Name-conflict suffixing (` (1)`, …) is the
-/// adapter's job — the planner just calls in parent→child order.
+/// Returns the folder's LinkID. Name-conflict handling (merge into an
+/// existing folder — FolderConflictPolicy) is the adapter's job; the
+/// planner just calls in parent→child order.
 protocol RemoteFolderCreator: Sendable {
     func ensureFolder(name: String, parentLinkID: String, shareID: String) async throws -> String
 }
