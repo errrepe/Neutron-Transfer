@@ -96,8 +96,8 @@
 - Cria diretórios locais primeiro (`FileManager.createDirectory(withIntermediateDirectories:true)`).
 - Escreve via arquivo temporário `*.nucleon-part` → `rename` atômico ao verificar.
 - Downloads em voo de antes do rename (RN1, 2026-10-03) podem ter deixado
-  órfãos arquivos `*.neutron-part` ao lado do destino: um retry no mesmo
-  destino sobrescreve o órfão, e os demais são seguros de apagar.
+  órfãos arquivos `*-part` com o prefixo antigo ao lado do destino: um retry
+  no mesmo destino sobrescreve o órfão, e os demais são seguros de apagar.
 
 ### 2.3 Fetch + decrypt + verify
 
@@ -147,8 +147,8 @@ Arquivos: `Core/Transfers/TransferQueue.swift` (ator + `TransferFailure` +
 `Core/Transfers/LocalTreeScan.swift` (coleta recursiva),
 `Core/Transfers/DriveUploadAdapter.swift` (ponte live),
 `Features/Transfers/TransferQueueView{,Model}.swift` (aba Uploads),
-`NeutronTransferTests/TransferQueueTests.swift` (18 testes; suite 59/59 via
-`swift test`; build Xcode verde, scheme `NeutronTransfer`,
+`NucleonTransferTests/TransferQueueTests.swift` (18 testes; suite 59/59 via
+`swift test`; build Xcode verde, scheme `NucleonTransfer`,
 DerivedData externo).
 
 - Job: arquivo local → share/parent, estados
@@ -194,9 +194,9 @@ reassemble + destino + escrita atômica), `Core/Transfers/DriveDownloadAdapter.s
 `Core/ProtonAPI/DriveModels.swift` (`RevisionBlock/Detail/Summary`),
 `Core/ProtonAPI/AppVersion.swift` (`storageHeaderValue`),
 `Features/Browser/DriveBrowserView{,Model}.swift` (botão Download por linha + progresso),
-`NeutronTransferTests/FileDownloadTests.swift` (9 testes; suite 68/68 via
+`NucleonTransferTests/FileDownloadTests.swift` (9 testes; suite 68/68 via
 `swift test` — 59 anteriores intactos; build Xcode verde,
-scheme `NeutronTransfer`, DerivedData externo).
+scheme `NucleonTransfer`, DerivedData externo).
 
 - Descoberta (0 logins SRP frescos — token em cache de 23:55 reutilizado):
   `rclone --config /tmp/rclone-nt.conf cat "nt:NT-F43-FIXTURE.txt" --dump bodies`
@@ -243,9 +243,9 @@ scheme `NeutronTransfer`, DerivedData externo).
 Arquivos novos: `Core/Transfers/UserFacingError.swift` (mensagens acionáveis),
 `Core/Transfers/DownloadRecord.swift` (modelo puro),
 `Features/Transfers/TransferActivityStore.swift` (histórico + refresh),
-`NeutronTransferTests/F6HardeningTests.swift` (25 testes; suite 93/93 via
+`NucleonTransferTests/F6HardeningTests.swift` (25 testes; suite 93/93 via
 `swift test` — sem regressão; build Xcode verde,
-scheme `NeutronTransfer`, DerivedData externo).
+scheme `NucleonTransfer`, DerivedData externo).
 Alterados: `DriveModels.ShareMetadata` (Bool tolerante),
 `TransferQueueView{,Model}` (aba Transfers unificada),
 `DriveBrowserView{,Model}` (spinners/vazios/refresh),
@@ -334,7 +334,7 @@ Alterados: `DriveModels.ShareMetadata` (Bool tolerante),
   falhou com 2501 signature-address, linha 33 — retry após relogin).
 - Como testar (offline): `swift test` na raiz do repo (o `Package.swift`
   compila `Core/` direto; 93/93 esperado) + build Xcode MCP scheme
-  `NeutronTransfer`
+  `NucleonTransfer`
   (DerivedData `/Volumes/SSD 4TB/DEV/DerivedData`, sem builds concorrentes).
 
 ## 10. F6-fix — `runModal` travava a main thread (corrigido 2026-10-01, offline)
@@ -356,9 +356,9 @@ morre (abas, Reload, botões), só AX/screenshots respondem.
 - Decisão extraída para núcleo puro AppKit-free
   (`Core/Transfers/PanelIntake.swift`: `downloadDestination(responseOK:url:)`,
   `uploadURLs(responseOK:urls:)`, `downloadCancelledStatus(rowName:)`), coberta
-  por `NeutronTransferTests/PanelIntakeTests.swift` (7 testes Swift Testing;
+  por `NucleonTransferTests/PanelIntakeTests.swift` (7 testes Swift Testing;
   suite 100/100 via `swift test` — 93 anteriores intactos; build Xcode
-  verde, scheme `NeutronTransfer`, DerivedData externo).
+  verde, scheme `NucleonTransfer`, DerivedData externo).
 - Auditoria MainActor nos paths de UI: `panel.url` após cancel agora guarda
   `response == .OK` primeiro (valor stale ignorado); download segura
   `startAccessingSecurityScopedResource` só durante o `download` e dá `stop`

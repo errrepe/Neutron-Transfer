@@ -232,7 +232,7 @@ actor TransferQueue {
     }
 
     /// Default snapshot location: Application Support/NucleonTransfer/.
-    /// (Renamed in RN1 — the pre-rename snapshot under `NeutronTransfer/` is
+    /// (Renamed in RN1 — the pre-rename snapshot under the legacy app dir is
     /// abandoned, not migrated: queue resume is best-effort at alpha stage.)
     static func defaultStoreURL() -> URL? {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first

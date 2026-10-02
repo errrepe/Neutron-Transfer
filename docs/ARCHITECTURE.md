@@ -14,9 +14,9 @@
 ## 2. Real tree
 
 ```
-NeutronTransfer/NeutronTransfer/
+NucleonTransfer/NucleonTransfer/
   App/
-    NeutronTransferApp.swift    — entry point: Window + Settings + commands
+    NucleonTransferApp.swift    — entry point: Window + Settings + commands
     AppSession.swift            — @MainActor @Observable DI root + auth lifecycle
     RootView.swift              — login ↔ main switch by session phase
     AppCommands.swift           — menubar commands (New Folder, Upload, Download…)
@@ -68,7 +68,7 @@ NeutronTransfer/NeutronTransfer/
     Settings/   SettingsView
     Shared/     Panels (async NSOpenPanel)
     Preview/    PreviewFixtures (#if DEBUG)
-NeutronTransfer/NeutronTransferTests/   — Swift Testing suite (171 tests)
+NucleonTransfer/NucleonTransferTests/   — Swift Testing suite (171 tests)
 ```
 
 Rules:
@@ -210,8 +210,8 @@ See `docs/TRANSFERS.md` for the full wire protocol. Summary:
 
 ## 11. Testability
 
-- Root `Package.swift` compiles `Core/` as module `NeutronTransfer` +
-  `NeutronTransferTests` — `swift test` runs the full suite without Xcode
+- Root `Package.swift` compiles `Core/` as module `NucleonTransfer` +
+  `NucleonTransferTests` — `swift test` runs the full suite without Xcode
   (171 tests: crypto vectors, queue, download, models, resolver, UI helpers).
 - Protocols for mocks: `TransferUploader`, `RemoteFolderCreator`, sleeper
   injection for backoff tests, `Data(contentsOf:)` seams via adapters.

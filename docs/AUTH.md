@@ -74,7 +74,9 @@
   bcrypt de referência (Python): 3 vetores incluindo senha UTF-8.
 - Modulus PGP-clearsign: envelope parseado (`ModulusDecoder`); verificação da assinatura
   GATADA para F2c (GopenPGP bridge). Transporte é TLS.
-- **Login real verificado em 2026-09-29** contra `neutrontransfertest@proton.me`:
+- **Login real verificado em 2026-09-29** contra a conta de teste dedicada
+  (registrada sob o nome antigo do app, `@proton.me`; endereço completo nos
+  relatórios de QA no Desktop):
   info → hash → proofs → `/auth/v4` → serverProof OK → UID recebido. Credenciais
   usadas só em memória, nunca commitadas.
 - Perf conhecido: ~6s por modPow 2048-bit em debug (≈20s por login). Release é

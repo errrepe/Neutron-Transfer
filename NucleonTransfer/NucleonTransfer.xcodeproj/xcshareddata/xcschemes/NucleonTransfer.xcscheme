@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "98CEDC3C306C8187004C9E45"
-               BuildableName = "NeutronTransfer.app"
-               BlueprintName = "NeutronTransfer"
-               ReferencedContainer = "container:NeutronTransfer.xcodeproj">
+               BuildableName = "NucleonTransfer.app"
+               BlueprintName = "NucleonTransfer"
+               ReferencedContainer = "container:NucleonTransfer.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -47,9 +47,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "98CEDC3C306C8187004C9E45"
-            BuildableName = "NeutronTransfer.app"
-            BlueprintName = "NeutronTransfer"
-            ReferencedContainer = "container:NeutronTransfer.xcodeproj">
+            BuildableName = "NucleonTransfer.app"
+            BlueprintName = "NucleonTransfer"
+            ReferencedContainer = "container:NucleonTransfer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -64,9 +64,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "98CEDC3C306C8187004C9E45"
-            BuildableName = "NeutronTransfer.app"
-            BlueprintName = "NeutronTransfer"
-            ReferencedContainer = "container:NeutronTransfer.xcodeproj">
+            BuildableName = "NucleonTransfer.app"
+            BlueprintName = "NucleonTransfer"
+            ReferencedContainer = "container:NucleonTransfer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

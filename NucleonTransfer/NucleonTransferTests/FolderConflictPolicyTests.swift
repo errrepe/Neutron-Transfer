@@ -4,7 +4,7 @@
 import Foundation
 import Testing
 
-@testable import NeutronTransfer
+@testable import NucleonTransfer
 
 private func child(
     _ id: String, name: String, folder: Bool, decrypted: Bool = true

@@ -6,11 +6,11 @@ import CryptoKit
 import Foundation
 import Testing
 
-@testable import NeutronTransfer
+@testable import NucleonTransfer
 
 struct FileDownloadTests {
     @Test func roundtripSingleBlockByteIdentical() throws {
-        let data = Data("hello neutron f5 fixture".utf8)
+        let data = Data("hello nucleon f5 fixture".utf8)
         let back = try FileDownload.roundtrip(data: data, blockSize: 4 * 1024 * 1024)
         #expect(back == data)
     }

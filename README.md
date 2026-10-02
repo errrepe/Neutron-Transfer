@@ -50,10 +50,10 @@ alpha: expect rough edges and read the known limitations below.
 ```sh
 git clone <repo-url>
 cd "Nucleon Transfer"
-open NeutronTransfer/NeutronTransfer.xcodeproj
+open NucleonTransfer/NucleonTransfer.xcodeproj
 ```
 
-Build and run the `NeutronTransfer` scheme. There are no third-party
+Build and run the `NucleonTransfer` scheme. There are no third-party
 dependencies.
 
 To run the offline test suite (pure Foundation, no Xcode required):
@@ -62,8 +62,8 @@ To run the offline test suite (pure Foundation, no Xcode required):
 swift test
 ```
 
-The root `Package.swift` compiles `NeutronTransfer/NeutronTransfer/Core/`
-plus `NeutronTransfer/NeutronTransferTests/` directly.
+The root `Package.swift` compiles `NucleonTransfer/NucleonTransfer/Core/`
+plus `NucleonTransfer/NucleonTransferTests/` directly.
 
 ## Security model
 

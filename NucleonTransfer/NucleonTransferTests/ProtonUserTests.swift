@@ -5,7 +5,7 @@
 import Foundation
 import Testing
 
-@testable import NeutronTransfer
+@testable import NucleonTransfer
 
 struct ProtonUserDecodeTests {
     @Test func decodesAccountFieldsWhenPresent() throws {

@@ -4,7 +4,7 @@
 import Foundation
 import Testing
 
-@testable import NeutronTransfer
+@testable import NucleonTransfer
 
 struct AppVersionHeaderTests {
     @Test func headerValueIsHonestExternalDrive() {

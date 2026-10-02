@@ -32,18 +32,18 @@
 
 ## 4. Tests
 
-- Offline suite `NeutronTransferTests` (Swift Testing): RFC vectors
+- Offline suite `NucleonTransferTests` (Swift Testing): RFC vectors
   (AES-KW §4.1), integers vs Python, bcrypt vs the reference C
   implementation, S2K/KDF/ECDH synthetic interop, Ed25519 roundtrip,
   fingerprints. No network, no secrets — always safe to run.
 - Local loop: `swift test` at the **repo root**. The root `Package.swift`
-  compiles `NeutronTransfer/NeutronTransfer/Core/` as module
-  `NeutronTransfer` plus the `NeutronTransferTests/` suite — no Xcode, no
+  compiles `NucleonTransfer/NucleonTransfer/Core/` as module
+  `NucleonTransfer` plus the `NucleonTransferTests/` suite — no Xcode, no
   scheme.
-- The `NeutronTransferTests` target in the `.xcodeproj` is not hosted by
+- The `NucleonTransferTests` target in the `.xcodeproj` is not hosted by
   the app (no `TEST_HOST`), so `@testable import` does not link under
   Xcode — `swift test` is the canonical path for the offline suite (the
-  shared `NeutronTransfer` scheme deliberately lists no testables).
+  shared `NucleonTransfer` scheme deliberately lists no testables).
 - **Demo mode (DEBUG only):** launch the app signed into an offline,
   deterministic drive — no credentials, no network. In Xcode: Product →
   Scheme → Edit Scheme → Run → Arguments → add `-NTDemoMode YES`. Via

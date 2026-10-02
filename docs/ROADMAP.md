@@ -16,8 +16,8 @@
 
 ## F1 — Scaffold + Build verde — ✅ done
 
-- Projeto Xcode macOS SwiftUI Swift 6 criado; alvos `NeutronTransfer` +
-  `NeutronTransferTests`. Build verde, DerivedData externo.
+- Projeto Xcode macOS SwiftUI Swift 6 criado; alvos `NucleonTransfer` +
+  `NucleonTransferTests`. Build verde, DerivedData externo.
 
 ## F2 — Spike SRP (sem UI) — ✅ done
 

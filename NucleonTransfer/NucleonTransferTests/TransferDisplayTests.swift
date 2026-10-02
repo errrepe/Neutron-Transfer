@@ -4,7 +4,7 @@
 import Foundation
 import Testing
 
-@testable import NeutronTransfer
+@testable import NucleonTransfer
 
 @Suite("TransferDisplay")
 struct TransferDisplayTests {

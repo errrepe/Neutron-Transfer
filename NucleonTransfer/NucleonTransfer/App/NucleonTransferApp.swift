@@ -6,7 +6,7 @@
 import SwiftUI
 
 @main
-struct NeutronTransferApp: App {
+struct NucleonTransferApp: App {
     #if DEBUG
     // `-NTDemoMode YES` lands in the argument domain of UserDefaults and
     // boots the offline demo session (R1).

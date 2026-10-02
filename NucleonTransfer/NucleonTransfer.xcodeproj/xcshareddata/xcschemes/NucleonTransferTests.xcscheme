@@ -20,8 +20,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "98CEDC9E306CB88A004C9E45"
-               BuildableName = "NeutronTransferTests.xctest"
-               ReferencedContainer = "container:NeutronTransfer.xcodeproj">
+               BuildableName = "NucleonTransferTests.xctest"
+               ReferencedContainer = "container:NucleonTransfer.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>

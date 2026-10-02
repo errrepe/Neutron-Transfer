@@ -6,7 +6,7 @@
 import Foundation
 import Testing
 
-@testable import NeutronTransfer
+@testable import NucleonTransfer
 
 struct FolderNameValidatorTests {
     @Test func plainNamePasses() {

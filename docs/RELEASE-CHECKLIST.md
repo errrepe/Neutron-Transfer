@@ -3,8 +3,8 @@
 Direct distribution (Developer ID + notarization). **No App Store** — the app
 is sandboxed with hardened runtime; there is no App Store Connect step.
 
-Target artifact: `NeutronTransfer-0.1.0-alpha.zip` containing
-`NeutronTransfer.app` (arm64, macOS 26+, `dev.nucleon.NucleonTransfer`).
+Target artifact: `NucleonTransfer-0.1.0-alpha.zip` containing
+`NucleonTransfer.app` (arm64, macOS 26+, `dev.nucleon.NucleonTransfer`).
 
 ## Pre-flight (automated, already verified — S5.2)
 
@@ -17,7 +17,7 @@ Target artifact: `NeutronTransfer-0.1.0-alpha.zip` containing
       `files.user-selected.read-write`.
 - [x] `ENABLE_HARDENED_RUNTIME = YES` in the Release configuration.
 - [x] Release build green (`xcodebuild -configuration Release`); bundle
-      contents minimal (`MacOS/NeutronTransfer`, `Info.plist`, `PkgInfo`,
+      contents minimal (`MacOS/NucleonTransfer`, `Info.plist`, `PkgInfo`,
       `Resources/Assets.car` + `AppIcon.icns`).
 - [x] Tokens/password/key seeds are memory-only (SessionManager/KeyringCache
       actors); only `transfer-queue.json` persists — paths + IDs, no secrets.
@@ -48,11 +48,11 @@ Target artifact: `NeutronTransfer-0.1.0-alpha.zip` containing
 ## Build
 
 ```sh
-cd "NeutronTransfer"   # the .xcodeproj dir
-xcodebuild -project NeutronTransfer.xcodeproj \
-  -scheme NeutronTransfer -configuration Release \
+cd "NucleonTransfer"   # the .xcodeproj dir
+xcodebuild -project NucleonTransfer.xcodeproj \
+  -scheme NucleonTransfer -configuration Release \
   -derivedDataPath "/Volumes/SSD 4TB/DEV/DerivedData" \
-  archive -archivePath "/tmp/NeutronTransfer-0.1.0-alpha.xcarchive"
+  archive -archivePath "/tmp/NucleonTransfer-0.1.0-alpha.xcarchive"
 ```
 
 (Or: Xcode › Product › Archive with the Release configuration.)
@@ -65,37 +65,37 @@ security find-identity -v -p codesigning
 
 codesign --deep --force --options runtime \
   --sign "Developer ID Application: <name> (<TEAMID>)" \
-  --entitlements NeutronTransfer/NeutronTransfer/NeutronTransfer.entitlements \
+  --entitlements NucleonTransfer/NucleonTransfer/NucleonTransfer.entitlements \
   --timestamp \
-  "/tmp/NeutronTransfer-0.1.0-alpha.xcarchive/Products/Applications/NeutronTransfer.app"
+  "/tmp/NucleonTransfer-0.1.0-alpha.xcarchive/Products/Applications/NucleonTransfer.app"
 
 # Verify: hardened runtime flag + entitlements + sandbox
-codesign -dv --verbose=4 NeutronTransfer.app
-codesign -d --entitlements :- NeutronTransfer.app
-spctl -a -vvv -t execute NeutronTransfer.app   # expect: "rejected" until notarized
+codesign -dv --verbose=4 NucleonTransfer.app
+codesign -d --entitlements :- NucleonTransfer.app
+spctl -a -vvv -t execute NucleonTransfer.app   # expect: "rejected" until notarized
 ```
 
 ## Notarize — `notarytool` (human step)
 
 ```sh
 # Zip the .app first (ditto preserves signatures; do NOT use Finder compress)
-ditto -c -k --sequesterRsrc --keepParent NeutronTransfer.app \
-  NeutronTransfer-0.1.0-alpha.zip
+ditto -c -k --sequesterRsrc --keepParent NucleonTransfer.app \
+  NucleonTransfer-0.1.0-alpha.zip
 
-xcrun notarytool submit NeutronTransfer-0.1.0-alpha.zip \
+xcrun notarytool submit NucleonTransfer-0.1.0-alpha.zip \
   --keychain-profile "AC_PASSWORD" --wait
 
-xcrun stapler staple NeutronTransfer.app
-spctl -a -vvv -t execute NeutronTransfer.app   # expect: "accepted, source=Notarized Developer ID"
+xcrun stapler staple NucleonTransfer.app
+spctl -a -vvv -t execute NucleonTransfer.app   # expect: "accepted, source=Notarized Developer ID"
 # Re-zip AFTER stapling so the ticket ships inside the archive:
-ditto -c -k --sequesterRsrc --keepParent NeutronTransfer.app \
-  NeutronTransfer-0.1.0-alpha.zip
+ditto -c -k --sequesterRsrc --keepParent NucleonTransfer.app \
+  NucleonTransfer-0.1.0-alpha.zip
 ```
 
 ## Checksum + tag + publish (human step)
 
 ```sh
-shasum -a 256 NeutronTransfer-0.1.0-alpha.zip
+shasum -a 256 NucleonTransfer-0.1.0-alpha.zip
 # paste the digest into the release notes
 
 git tag -a v0.1.0-alpha -m "Nucleon Transfer 0.1.0-alpha — first public alpha"
@@ -103,7 +103,7 @@ git push origin v0.1.0-alpha
 
 # GitHub release
 gh release create v0.1.0-alpha \
-  NeutronTransfer-0.1.0-alpha.zip \
+  NucleonTransfer-0.1.0-alpha.zip \
   --title "v0.1.0-alpha" --notes-file docs/release-notes-v0.1.0-alpha.md \
   --prerelease
 ```
@@ -135,7 +135,7 @@ not affiliated with or endorsed by Proton AG).
 - Alpha: expect rough edges. Report issues at the repo's issue tracker.
 
 ## Integrity
-SHA-256 of `NeutronTransfer-0.1.0-alpha.zip`: `<shasum -a 256 output>`
+SHA-256 of `NucleonTransfer-0.1.0-alpha.zip`: `<shasum -a 256 output>`
 
 Signed with Developer ID, notarized by Apple, sandboxed, hardened runtime.
 Source: https://github.com/errrepe/Neutron-Transfer (MIT).

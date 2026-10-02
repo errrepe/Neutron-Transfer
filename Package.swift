@@ -5,17 +5,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "NeutronTransferCore",
+    name: "NucleonTransferCore",
     platforms: [.macOS(.v26)],
     targets: [
         .target(
-            name: "NeutronTransfer",                         // matches @testable import
-            path: "NeutronTransfer/NeutronTransfer/Core"
+            name: "NucleonTransfer",                         // matches @testable import
+            path: "NucleonTransfer/NucleonTransfer/Core"
         ),
         .testTarget(
-            name: "NeutronTransferTests",
-            dependencies: ["NeutronTransfer"],
-            path: "NeutronTransfer/NeutronTransferTests"
+            name: "NucleonTransferTests",
+            dependencies: ["NucleonTransfer"],
+            path: "NucleonTransfer/NucleonTransferTests"
         ),
     ]
 )

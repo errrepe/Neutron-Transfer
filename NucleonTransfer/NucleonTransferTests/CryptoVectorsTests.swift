@@ -6,7 +6,7 @@ import CryptoKit
 import Foundation
 import Testing
 
-@testable import NeutronTransfer
+@testable import NucleonTransfer
 
 private func HX(_ s: String) -> Data {
     var d = Data()
@@ -123,7 +123,7 @@ struct CryptoVectorsTests {
     @Test func ed25519DetachedRoundtrip() throws {
         let key = Curve25519.Signing.PrivateKey()
         let pub = key.publicKey.rawRepresentation
-        let data = Data("neutron-transfer".utf8)
+        let data = Data("nucleon-transfer".utf8)
         let time: UInt32 = 1_700_000_000
         let hashed: [UInt8] = [0x02, 0x04,
             UInt8((time >> 24) & 0xFF), UInt8((time >> 16) & 0xFF),
@@ -258,13 +258,13 @@ struct CryptoVectorsTests {
             curveOIDBody: oid, kdfHash: 8, kdfCipher: 9
         )
         let armored = try MessageEncrypt.encrypt(
-            plaintext: Data("hello-neutron-18".utf8), recipient: recipient, cipher: 9, useMDC: true
+            plaintext: Data("hello-nucleon-18".utf8), recipient: recipient, cipher: 9, useMDC: true
         )
         let candidate = DecryptCandidate(
             scalarLE: priv.rawRepresentation, fingerprint: fp,
             kdfHash: 8, kdfCipher: 9, curveOIDBody: oid
         )
-        #expect(try MessageDecrypt.decrypt(armored: armored, candidates: [candidate]) == Data("hello-neutron-18".utf8))
+        #expect(try MessageDecrypt.decrypt(armored: armored, candidates: [candidate]) == Data("hello-nucleon-18".utf8))
     }
 
     @Test func messageEncryptRoundtripTag9() throws {
@@ -277,7 +277,7 @@ struct CryptoVectorsTests {
             curveOIDBody: oid, kdfHash: 8, kdfCipher: 7
         )
         let armored = try MessageEncrypt.encrypt(
-            plaintext: Data("hello-neutron-9".utf8), recipient: recipient, cipher: 7, useMDC: false
+            plaintext: Data("hello-nucleon-9".utf8), recipient: recipient, cipher: 7, useMDC: false
         )
         let raw = try Armor.decode(armored)
         #expect(try PGPPackets.parse(raw).map(\.tag) == [1, 9])
@@ -285,7 +285,7 @@ struct CryptoVectorsTests {
             scalarLE: priv.rawRepresentation, fingerprint: fp,
             kdfHash: 8, kdfCipher: 7, curveOIDBody: oid
         )
-        #expect(try MessageDecrypt.decrypt(armored: armored, candidates: [candidate]) == Data("hello-neutron-9".utf8))
+        #expect(try MessageDecrypt.decrypt(armored: armored, candidates: [candidate]) == Data("hello-nucleon-9".utf8))
     }
 
     @Test func nameEncryptParentKeyringRule() throws {
