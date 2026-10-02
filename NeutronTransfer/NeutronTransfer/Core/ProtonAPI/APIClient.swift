@@ -242,15 +242,28 @@ struct APIClient: Sendable {
             // surface nested API error if present, else the decoding error
             // WITH a raw body prefix (decode mysteries are otherwise opaque —
             // e.g. a commit response that carries Code 1000 in odd framing).
+            // Credential-shaped fields are redacted: error strings surface
+            // verbatim in the UI AND persist in the queue JSON — a malformed
+            // auth envelope must never echo AccessToken/RefreshToken.
+            let body = redactedBodyPrefix(data)
             if let env = try? JSONDecoder().decode(ProtonEnvelope.self, from: data) {
-                let body = String(data: data.prefix(600), encoding: .utf8) ?? "<binary>"
                 throw ProtonAPIError.api(code: env.code, message: "\(env.error ?? error.localizedDescription) body=\(body)")
             }
-            let body = String(data: data.prefix(600), encoding: .utf8) ?? "<binary>"
             throw ProtonAPIError.transport(DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: [], debugDescription:
                     "\(error.localizedDescription) body=\(body)")))
         }
+    }
+
+    /// First 600 bytes of a response body for decode-error diagnostics, with
+    /// credential-shaped JSON fields (`"AccessToken":"…"` etc.) redacted.
+    private func redactedBodyPrefix(_ data: Data) -> String {
+        let raw = String(data: data.prefix(600), encoding: .utf8) ?? "<binary>"
+        return raw.replacingOccurrences(
+            of: #""(AccessToken|RefreshToken|Token|UID|SessionID|Password|Passphrase|Secret|PrivateKey)"\s*:\s*"[^"]*""#,
+            with: #""$1":"[redacted]""#,
+            options: [.regularExpression, .caseInsensitive]
+        )
     }
 
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
