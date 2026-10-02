@@ -1,4 +1,4 @@
-// Neutron Transfer — panel intake decision (pure, AppKit-free).
+// Nucleon Transfer — panel intake decision (pure, AppKit-free).
 // Extracts the OK/cancel + URL resolution for NSOpenPanel sheet flows so the
 // async completion paths in the view-models never block MainActor and the
 // cancel-vs-confirm mapping is unit-testable without AppKit.

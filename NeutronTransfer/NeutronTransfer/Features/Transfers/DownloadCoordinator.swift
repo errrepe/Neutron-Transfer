@@ -1,4 +1,4 @@
-// Neutron Transfer — browser download orchestration (F7 S2.3).
+// Nucleon Transfer — browser download orchestration (F7 S2.3).
 // Extracted from the pre-F7 browser view-model, same behavior: the user picks
 // ONE destination folder for the whole batch, then items download
 // SEQUENTIALLY (a file via downloadSingleFile with per-block progress, a

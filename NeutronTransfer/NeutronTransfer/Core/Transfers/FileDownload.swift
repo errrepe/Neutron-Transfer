@@ -1,4 +1,4 @@
-// Neutron Transfer — file download core (F5).
+// Nucleon Transfer — file download core (F5).
 // Offline-testable: pure reassembly + hash verify + destination planning.
 // Live wiring (DriveClient revisions/storage + key unlock) lives in
 // DriveDownloadAdapter.swift; UI progress lives in the browser view-model.
@@ -118,7 +118,7 @@ enum FileDownload {
         return candidate // unreachable in practice; never overwrite loop
     }
 
-    /// Atomic write: temp `*.neutron-part` in the destination directory +
+    /// Atomic write: temp `*.nucleon-part` in the destination directory +
     /// rename (TRANSFERS.md §2.2). Creates intermediate directories.
     static func atomicWrite(_ data: Data, to destination: URL) throws {
         let dir = destination.deletingLastPathComponent()
@@ -126,7 +126,7 @@ enum FileDownload {
             at: dir, withIntermediateDirectories: true
         )
         let part = dir
-            .appendingPathComponent(destination.lastPathComponent + ".neutron-part")
+            .appendingPathComponent(destination.lastPathComponent + ".nucleon-part")
         try data.write(to: part, options: .atomic)
         if FileManager.default.fileExists(atPath: destination.path) {
             try FileManager.default.removeItem(at: destination)

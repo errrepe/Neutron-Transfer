@@ -1,5 +1,7 @@
 # ADR-001 — Swift nativo com SRP próprio (sem binding SDK incubating)
 
+> **2026-10-03** — o app foi renomeado para **Nucleon Transfer**; este documento usa o nome antigo por ser registro histórico.
+
 - Status: Accepted
 - Data: 2026-09-29
 - Contexto: SDK oficial `ProtonDriveApps/sdk` tem `Client` pronto, `Sync`/`Search` coming soon. Swift é binding incubating que embrulha C# (`sdk-swift`, 2 commits, instável). SDK não inclui auth/login/session/address provider. Migração cripto quebrante prevista fim 2026 / início 2027.

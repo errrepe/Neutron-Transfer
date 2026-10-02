@@ -1,4 +1,4 @@
-# SECURITY — Neutron Transfer
+# SECURITY — Nucleon Transfer
 
 ## Reporting a vulnerability
 
@@ -44,7 +44,7 @@
 
 - None. Zero analytics, zero third-party crash reporters.
 - No data leaves the Mac beyond official Proton Drive API calls carrying
-  the header `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha`.
+  the header `x-pm-appversion: external-drive-nucleon_transfer@0.1.0-alpha`.
 
 ## Relevant surface
 

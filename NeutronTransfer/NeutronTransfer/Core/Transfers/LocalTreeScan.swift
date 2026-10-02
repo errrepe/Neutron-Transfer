@@ -1,4 +1,4 @@
-// Neutron Transfer — local tree scan for recursive upload (F4.4).
+// Nucleon Transfer — local tree scan for recursive upload (F4.4).
 // Pure Foundation: enumerates dropped files/folders into a flat entry list
 // preserving structure via NFC-normalized relative paths. Symlink policy
 // (TRANSFERS.md §1.2): followed when the target stays inside the scanned

@@ -1,4 +1,4 @@
-// Neutron Transfer — ECDH session-key encrypt (RFC 6637 §8, go-crypto ecdh.go).
+// Nucleon Transfer — ECDH session-key encrypt (RFC 6637 §8, go-crypto ecdh.go).
 // Exact inverse of ECDHDecrypt: fresh ephemeral X25519 keypair, shared
 // secret ZB, KDF = Hash(0x00000001 || ZB || Param) with Param =
 // len||OID||18 03 01 hash cipher||"Anonymous Sender    "||fp20 (NO DER tag),

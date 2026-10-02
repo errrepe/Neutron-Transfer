@@ -1,4 +1,4 @@
-// Neutron Transfer — sort and filter for drive listings.
+// Nucleon Transfer — sort and filter for drive listings.
 // Sorting applies the caller's comparators, then a stable partition so
 // folders always precede files. Filtering matches the display name.
 import Foundation

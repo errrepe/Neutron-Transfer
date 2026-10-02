@@ -1,4 +1,4 @@
-// Neutron Transfer — the transfers popover (F7 S3.2, spec 6.5).
+// Nucleon Transfer — the transfers popover (F7 S3.2, spec 6.5).
 // 380×440: header ("Transfers" + ⋯ menu), then a List with Active /
 // Failed / Completed sections (only non-empty ones), uploads and downloads
 // merged newest-first via TransferDisplay. Pure inputs + closures so the

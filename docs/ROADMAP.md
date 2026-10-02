@@ -1,5 +1,7 @@
 # ROADMAP — F0 → F7
 
+> 2026-10-03 — app renamed to **Nucleon Transfer**
+
 > MVP = fila completa de upload + download funcionando contra conta real. Sem sync contínuo.
 >
 > Estado real em 2026-10-02: F0–F6 concluídas, F7 (UI nativa) praticamente
@@ -44,7 +46,7 @@
 
 - Download de arquivos e pastas para pasta escolhida (`NSOpenPanel`),
   espelho de árvore, blocos em paralelo, SHA-256 por bloco verificado
-  contra bytes de storage (live-proven), escrita atômica `.neutron-part`.
+  contra bytes de storage (live-proven), escrita atômica `.nucleon-part`.
 
 ## F6 — Fila completa + Alpha polish — ✅ done
 

@@ -1,4 +1,4 @@
-// Neutron Transfer — sidebar for the signed-in shell (F7 S2.1).
+// Nucleon Transfer — sidebar for the signed-in shell (F7 S2.1).
 // "Drive" section: My Files + Photos (when the share exists); "Computers"
 // lists device shares, hidden when empty. Icons per spec 6.2; the storage
 // footer sits in the bottom safe-area inset. System materials only.

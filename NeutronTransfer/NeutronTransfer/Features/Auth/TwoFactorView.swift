@@ -1,4 +1,4 @@
-// Neutron Transfer — TOTP prompt (F7 S4.1).
+// Nucleon Transfer — TOTP prompt (F7 S4.1).
 // Shown while AppSession.phase == .needsTwoFactor: a six-digit code field
 // (digits only, auto-submits at 6), Back cancels the whole sign-in and
 // lands on the login screen.

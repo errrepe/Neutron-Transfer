@@ -1,4 +1,4 @@
-// Neutron Transfer — F4.4 offline queue suite (Swift Testing).
+// Nucleon Transfer — F4.4 offline queue suite (Swift Testing).
 // No network, no secrets, no waiting on real backoff (injected sleeper).
 import Foundation
 import Testing

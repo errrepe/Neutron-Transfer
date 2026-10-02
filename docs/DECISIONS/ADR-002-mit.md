@@ -1,5 +1,7 @@
 # ADR-002 — Licença MIT
 
+> **2026-10-03** — o app foi renomeado para **Nucleon Transfer**; este documento usa o nome antigo por ser registro histórico.
+
 - Status: Accepted
 - Data: 2026-09-29
 - Contexto: Projeto open source desde o dia zero. Precisa maximizar contribuição e reuso, incluindo eventual interoperabilidade com SDKs e ferramentas (rclone, go-proton-api). Sem modelo comercial definido no MVP.

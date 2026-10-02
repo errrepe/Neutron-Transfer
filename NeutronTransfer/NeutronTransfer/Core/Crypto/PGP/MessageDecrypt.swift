@@ -1,4 +1,4 @@
-// Neutron Transfer — armored message decrypt (F3b-2).
+// Nucleon Transfer — armored message decrypt (F3b-2).
 // Layout (pre-refresh format): [PKESK v3 ECDH (tag 1)] + [SED (tag 9) |
 // SEIPDv1 (tag 18 v1)]. Tries each candidate recipient seed (mini keyring,
 // like go-crypto keyring decryption). Tag 18 v2 (AEAD) is out of scope.

@@ -1,5 +1,5 @@
 // swift-tools-version: 6.2
-// Neutron Transfer — SPM harness for the offline Core test suite.
+// Nucleon Transfer — SPM harness for the offline Core test suite.
 // The app itself builds with Xcode; this package only compiles Core/ (pure
 // Foundation) so contributors can run `swift test` without Xcode schemes.
 import PackageDescription

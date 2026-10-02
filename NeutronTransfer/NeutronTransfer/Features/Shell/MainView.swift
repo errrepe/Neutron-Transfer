@@ -1,4 +1,4 @@
-// Neutron Transfer — signed-in shell (F7 S2.1 + S2.2).
+// Nucleon Transfer — signed-in shell (F7 S2.1 + S2.2).
 // NavigationSplitView: classified roots in the sidebar, BrowserContainerView
 // (Table + folder navigation) in the detail column. While roots load, a
 // spinner; on failure, a retryable unavailable view.

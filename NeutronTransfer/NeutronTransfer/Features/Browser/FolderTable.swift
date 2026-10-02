@@ -1,4 +1,4 @@
-// Neutron Transfer — the drive listing as a sortable table (F7 S2.2/S2.3).
+// Nucleon Transfer — the drive listing as a sortable table (F7 S2.2/S2.3).
 // Columns per spec 6.3: Name (16×16 system icon + middle-truncated name +
 // lock badge for undecrypted names), Modified (monospaced digits), Size
 // (folders show "—", trailing-aligned). Selection and sort order live in

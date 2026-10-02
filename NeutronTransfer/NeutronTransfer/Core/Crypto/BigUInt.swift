@@ -1,4 +1,4 @@
-// Neutron Transfer — minimal unsigned big integer for SRP-6a (up to 2048-bit).
+// Nucleon Transfer — minimal unsigned big integer for SRP-6a (up to 2048-bit).
 // Wire format: fixed-size LITTLE-endian Data (matches go-srp toInt/fromInt).
 //
 // DESIGN: 32-bit limbs. Every intermediate (a*b + acc + carry with a,b,acc

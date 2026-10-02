@@ -1,4 +1,4 @@
-// Neutron Transfer — minimal Proton REST client.
+// Nucleon Transfer — minimal Proton REST client.
 // Mirrors go-proton-api Manager.r(): base mail.proton.me/api, x-pm-appversion,
 // x-pm-uid + Bearer on authed calls, 401 -> single refresh retry (in SessionManager).
 import Foundation

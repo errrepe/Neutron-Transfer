@@ -94,7 +94,10 @@
 
 - Lista recursiva remota (`GET /drive/v4/nodes/{id}/children` + eventos) → constrói árvore.
 - Cria diretórios locais primeiro (`FileManager.createDirectory(withIntermediateDirectories:true)`).
-- Escreve via arquivo temporário `*.neutron-part` → `rename` atômico ao verificar.
+- Escreve via arquivo temporário `*.nucleon-part` → `rename` atômico ao verificar.
+- Downloads em voo de antes do rename (RN1, 2026-10-03) podem ter deixado
+  órfãos arquivos `*.neutron-part` ao lado do destino: um retry no mesmo
+  destino sobrescreve o órfão, e os demais são seguros de apagar.
 
 ### 2.3 Fetch + decrypt + verify
 
@@ -152,7 +155,7 @@ DerivedData externo).
   queued/uploading/paused/done/failed/cancelled, `bytesTotal/Done`,
   `attempt` persistente, `maxAttempts` (default 5), `remoteLinkID` no sucesso.
 - Persistência = snapshot JSON atômico em
-  `Application Support/NeutronTransfer/transfer-queue.json` (NÃO SwiftData:
+  `Application Support/NucleonTransfer/transfer-queue.json` (NÃO SwiftData:
   um ator dono de um snapshot `Codable` tem menos modos de falha que um grafo
   `@Model` + `ModelContext`; só paths/IDs/progresso, NUNCA segredos —
   verificado por teste `snapshotHoldsNoSecrets`). `uploading` → `queued` no load.
@@ -222,7 +225,7 @@ scheme `NeutronTransfer`, DerivedData externo).
   pode criar; `startAccessingSecurityScopedResource` best-effort na sessão,
   sem bookmark persistente — fila de downloads persistente é F6).
   Sobrescrita: `uniqueDestination` (`nome`, `nome (1).ext`, … — paridade
-  upload) + escrita atômica `*.neutron-part` → rename (§2.2).
+  upload) + escrita atômica `*.nucleon-part` → rename (§2.2).
 - Decisão de escopo: downloader DEDICADO com progresso próprio (não extensão
   do `TransferQueue` — `TransferJob` é upload-específico: localPath/parentLinkID/
   uploader; adaptar para download balloonaria o ator + persistência; F6 unifica).
@@ -303,10 +306,11 @@ Alterados: `DriveModels.ShareMetadata` (Bool tolerante),
   Bool hoje, o decode tipado passa (`shares-typed-ok count=2`).
 - Gate allowlist `/drive/blocks` como LIMITADOR do alpha (mesma bateria,
   linhas 28-32; 1 draft real + 1 bloco, mesma sessão, sem login extra):
-  produto (`external-drive-neutron_transfer@0.1.0-alpha`) → 2000
+  produto (`external-drive-nucleon_transfer@0.1.0-alpha`; a sonda rodou
+  antes do rename, com o header do nome antigo) → 2000
   "You are using an outdated version of the app. Please update to upload
   this file."; versão honesta alta
-  (`external-drive-neutron_transfer@1.75.1-stable`) → 2000 idêntico;
+  (`external-drive-nucleon_transfer@1.75.1-stable`, idem) → 2000 idêntico;
   string rclone exata (`external-drive-rclone@1.75.1-stable`) → 1000.
   Allowlist ESTRITO pela string completa (bump honesto NÃO passa) →
   decisão SEM spoofing (ramo 3): uploads diretos SEGUEM DESABILITADOS no

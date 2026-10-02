@@ -1,4 +1,4 @@
-// Neutron Transfer — drop-target overlay for the folder table (F7 S3.1).
+// Nucleon Transfer — drop-target overlay for the folder table (F7 S3.1).
 // Drawn while a file drag hovers over a writable folder: tint stroke +
 // 6% accent wash + a regular-material capsule naming the destination.
 // Purely decorative — hit testing is off so the drop still lands on the

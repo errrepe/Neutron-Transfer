@@ -1,4 +1,4 @@
-// Neutron Transfer — unified transfer display model (F7 S3.2).
+// Nucleon Transfer — unified transfer display model (F7 S3.2).
 // One row type for BOTH uploads (TransferQueue jobs) and downloads
 // (TransferActivityStore records): pure Foundation mapping so the popover
 // view stays thin and every subtitle/section decision is offline-testable.

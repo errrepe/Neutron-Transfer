@@ -1,4 +1,4 @@
-// Neutron Transfer — system file icons for browser rows (F7 S2.2).
+// Nucleon Transfer — system file icons for browser rows (F7 S2.2).
 // NSWorkspace resolves the Finder icon for the item's content type
 // (folder → .folder, files → UTType from the name extension, .data
 // fallback). Icons are cached per extension — a folder listing reuses a

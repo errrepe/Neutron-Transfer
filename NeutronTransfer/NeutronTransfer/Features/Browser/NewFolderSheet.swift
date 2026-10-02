@@ -1,4 +1,4 @@
-// Neutron Transfer — New Folder sheet (F7 S2.3 / F7.1 R5).
+// Nucleon Transfer — New Folder sheet (F7 S2.3 / F7.1 R5).
 // Small modal: name field (starts as "Untitled Folder", fully selected so
 // typing replaces it), inline validation/creation errors in red, and
 // Cancel / Create buttons — Create is the default action, disabled while

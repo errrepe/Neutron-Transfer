@@ -1,4 +1,4 @@
-// Neutron Transfer — per-root browser container (F7 S2.2, R2 for B1).
+// Nucleon Transfer — per-root browser container (F7 S2.2, R2 for B1).
 // One NavigationStack per root: the path is BrowserModel.path
 // (DriveLocation values) and the filter field lives in the toolbar.
 // FolderView/FolderTable receive the model by PARAMETER — destination

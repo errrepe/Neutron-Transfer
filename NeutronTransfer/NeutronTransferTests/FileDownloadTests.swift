@@ -1,4 +1,4 @@
-// Neutron Transfer — F5 offline download suite (Swift Testing).
+// Nucleon Transfer — F5 offline download suite (Swift Testing).
 // No network, no secrets: encrypt via FileUpload, then verify + decrypt +
 // reassemble through the FileDownload path (proves byte-identity, hash
 // enforcement, ordering, and destination planning).
@@ -120,7 +120,7 @@ struct FileDownloadTests {
         try FileDownload.atomicWrite(data, to: dest)
         #expect(try Data(contentsOf: dest) == data)
         #expect(!FileManager.default.fileExists(
-            atPath: dest.appendingPathExtension("neutron-part").path
+            atPath: dest.appendingPathExtension("nucleon-part").path
         ))
     }
 

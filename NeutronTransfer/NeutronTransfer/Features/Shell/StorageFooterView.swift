@@ -1,4 +1,4 @@
-// Neutron Transfer — sidebar footer: storage quota + account/sign-out (S2.1).
+// Nucleon Transfer — sidebar footer: storage quota + account/sign-out (S2.1).
 // Quota bar tint escalates with occupancy (accent → orange → red) and hides
 // entirely when the account has no quota. The account menu is always rendered
 // so Sign Out stays reachable even if /users failed.

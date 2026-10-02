@@ -1,4 +1,4 @@
-// Neutron Transfer — Ed25519 signing for folder creation (F4.2).
+// Nucleon Transfer — Ed25519 signing for folder creation (F4.2).
 // v4 signatures (type 0x00 binary-doc, 0x13 certification, 0x18 subkey
 // binding), hash = Hash(data || trailer) where trailer = body[0..<hashedEnd]
 // + [0x04, 0xFF] + len32BE(hashedEnd) (go-crypto sign.go parity). Emitted

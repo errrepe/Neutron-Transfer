@@ -1,4 +1,4 @@
-// Neutron Transfer — OpenPGP packet framing (RFC 4880 §4).
+// Nucleon Transfer — OpenPGP packet framing (RFC 4880 §4).
 // Supports new-format definite lengths, partial body lengths (concatenated,
 // as used by streamed encrypted-data packets) and old-format 1/2/4-octet
 // lengths + indeterminate (rest of data).

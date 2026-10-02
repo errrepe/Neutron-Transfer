@@ -1,4 +1,4 @@
-// Neutron Transfer — Drive share classification.
+// Nucleon Transfer — Drive share classification.
 // Typed view over the raw `Type`/`State` ints on ShareMetadata.
 import Foundation
 

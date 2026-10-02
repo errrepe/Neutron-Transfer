@@ -1,4 +1,4 @@
-// Neutron Transfer — password hashing dispatch per go-srp/hash.go
+// Nucleon Transfer — password hashing dispatch per go-srp/hash.go
 // Bcrypt core is vendored (Core/Crypto/BCrypt, MIT vapor-community/bcrypt).
 import CryptoKit
 import Foundation

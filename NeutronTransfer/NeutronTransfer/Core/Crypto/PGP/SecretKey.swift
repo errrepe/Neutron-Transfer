@@ -1,4 +1,4 @@
-// Neutron Transfer — secret-key packet parse + unlock (RFC 4880 §5.5.3).
+// Nucleon Transfer — secret-key packet parse + unlock (RFC 4880 §5.5.3).
 // Supports v4 keys, S2K usages 0/254/255, AES symmetric algos. EC secret MPIs
 // are left-padded to 32 bytes (Ed25519/X25519 seeds with leading zero bits).
 import CryptoKit

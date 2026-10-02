@@ -1,4 +1,4 @@
-// Neutron Transfer — single Drive key resolver (F7/S1.2).
+// Nucleon Transfer — single Drive key resolver (F7/S1.2).
 // One actor owns all unlocked share/node key material for the session:
 // share keyrings, node keys (memoized per linkID) and folder contexts
 // (node keys + the folder's name-HMAC hash key). Replaces the three

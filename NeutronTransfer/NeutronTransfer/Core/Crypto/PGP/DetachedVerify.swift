@@ -1,4 +1,4 @@
-// Neutron Transfer — detached signature parse + Ed25519 verify (F3b-3).
+// Nucleon Transfer — detached signature parse + Ed25519 verify (F3b-3).
 // v4 binary-doc signatures (type 0x00): digest = Hash(data || trailer),
 // trailer = body[0..<hashedEnd] + [version, 0xFF] + len32BE(hashedEnd).
 // Matches go-crypto signature.go signPrepareHash/buildHashSuffix.

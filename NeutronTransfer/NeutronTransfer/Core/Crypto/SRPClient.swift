@@ -1,4 +1,4 @@
-// Neutron Transfer — SRP-6a client proofs per ProtonMail/go-srp/srp.go
+// Nucleon Transfer — SRP-6a client proofs per ProtonMail/go-srp/srp.go
 // Generator is always 2. Bit length 2048. Wire ints are fixed-size little-endian.
 // Modulus signature (PGP clearsign) verification is TODO (F2b, GopenPGP bridge);
 // callers must pass already-decoded modulus bytes for now.

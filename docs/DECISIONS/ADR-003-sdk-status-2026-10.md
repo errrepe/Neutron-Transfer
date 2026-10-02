@@ -1,5 +1,7 @@
 # ADR-003 — SDK status as of 2026-10: stay native Swift
 
+> **2026-10-03** — o app foi renomeado para **Nucleon Transfer**; este documento usa o nome antigo por ser registro histórico.
+
 - Status: Accepted
 - Date: 2026-10-02 (SDK state checked 2026-10-01)
 - Context: pre-release check of `ProtonDriveApps/sdk`, which Proton presents

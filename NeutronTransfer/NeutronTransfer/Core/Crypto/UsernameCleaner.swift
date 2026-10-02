@@ -1,4 +1,4 @@
-// Neutron Transfer — username + bcrypt dot-slash base64 per go-srp/hash.go
+// Nucleon Transfer — username + bcrypt dot-slash base64 per go-srp/hash.go
 import Foundation
 
 enum UsernameCleaner {

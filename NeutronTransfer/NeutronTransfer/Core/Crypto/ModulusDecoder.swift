@@ -1,4 +1,4 @@
-// Neutron Transfer — Modulus decoding per go-srp NewAuth.
+// Nucleon Transfer — Modulus decoding per go-srp NewAuth.
 // Server sends the modulus as a PGP-clearsigned base64 string; go-srp verifies
 // the signature against the embedded Proton SRP pubkey (readClearSignedMessage).
 // This spike parses the clearsign envelope and decodes the body. Signature

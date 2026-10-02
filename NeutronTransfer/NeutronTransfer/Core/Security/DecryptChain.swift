@@ -1,4 +1,4 @@
-// Neutron Transfer — key hierarchy unlock orchestration (F3b chain).
+// Nucleon Transfer — key hierarchy unlock orchestration (F3b chain).
 // Mirrors go-proton-api Share.GetKeyRing + Link.GetKeyRing/GetName and the
 // rclone bridge flow: share via address keys, node via parent keyring,
 // names via node keyring. Pure crypto: callers supply fetched models.

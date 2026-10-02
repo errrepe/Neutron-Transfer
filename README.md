@@ -1,6 +1,6 @@
-# Neutron Transfer
+# Nucleon Transfer
 
-Neutron Transfer is a native macOS client for Proton Drive focused on what the
+Nucleon Transfer is a native macOS client for Proton Drive focused on what the
 official app does not offer: browsing your Drive, uploading arbitrary files and
 folders via drag-and-drop with structure preserved, and downloading to a folder
 you choose. It implements SRP login, the full key-hierarchy unlock and the
@@ -8,7 +8,7 @@ OpenPGP block format in pure Swift — end-to-end encryption is done on this Mac
 exactly like the official clients. (Note: uploads are currently blocked by a
 server-side allowlist — see Known limitations.)
 
-> Neutron Transfer is an independent, open-source app. It is not affiliated
+> Nucleon Transfer is an independent, open-source app. It is not affiliated
 > with or endorsed by Proton AG. Your password is used only to sign in and
 > unlock your keys on this Mac — it is never stored.
 
@@ -49,7 +49,7 @@ alpha: expect rough edges and read the known limitations below.
 
 ```sh
 git clone <repo-url>
-cd "Neutron Transfer"
+cd "Nucleon Transfer"
 open NeutronTransfer/NeutronTransfer.xcodeproj
 ```
 
@@ -80,7 +80,7 @@ plus `NeutronTransfer/NeutronTransferTests/` directly.
   Application Support) — paths, IDs and progress, no secrets.
 - No telemetry, no analytics, no third-party crash reporters.
 - Every request sends an honest `x-pm-appversion:
-  external-drive-neutron_transfer@0.1.0-alpha` header — the app never
+  external-drive-nucleon_transfer@0.1.0-alpha` header — the app never
   impersonates another client.
 
 See `SECURITY.md` for reporting and `docs/ARCHITECTURE.md` for internals.
@@ -131,4 +131,4 @@ Open source under MIT. See `CONTRIBUTING.md` and `LICENSE`.
 
 ## License
 
-MIT — see `LICENSE`. Copyright 2026 Neutron Transfer contributors.
+MIT — see `LICENSE`. Copyright 2026 Nucleon Transfer contributors.

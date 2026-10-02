@@ -1,4 +1,4 @@
-// Neutron Transfer — menu bar commands (F7 S4.2).
+// Nucleon Transfer — menu bar commands (F7 S4.2).
 // One menu bar, one window: commands reach the focused scene's state via
 // @FocusedValue — FolderView publishes its BrowserModel, RootView the
 // AppSession, and StorageFooterView its sign-out request (so the menu's
@@ -39,7 +39,7 @@ struct AppCommands: Commands {
     var body: some Commands {
         // App menu — custom About with the 6.6 disclaimer in the credits.
         CommandGroup(replacing: .appInfo) {
-            Button("About Neutron Transfer") {
+            Button("About Nucleon Transfer") {
                 NSApp.orderFrontStandardAboutPanel(options: [
                     .credits: NSAttributedString(string: AboutContent.disclaimer)
                 ])

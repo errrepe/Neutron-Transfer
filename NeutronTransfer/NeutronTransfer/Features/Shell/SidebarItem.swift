@@ -1,4 +1,4 @@
-// Neutron Transfer — sidebar selection model (F7 S2.1).
+// Nucleon Transfer — sidebar selection model (F7 S2.1).
 // Value identity for the sidebar rows; resolves to a `DriveRoot` against the
 // loaded `DriveRoots` so selection survives reloads by shareID, not index.
 import Foundation

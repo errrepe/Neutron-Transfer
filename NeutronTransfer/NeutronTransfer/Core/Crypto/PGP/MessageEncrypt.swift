@@ -1,4 +1,4 @@
-// Neutron Transfer — armored message encrypt (F4.1).
+// Nucleon Transfer — armored message encrypt (F4.1).
 // Mirror of MessageDecrypt: [PKESK v3 ECDH (tag 1)] + [SED (tag 9) |
 // SEIPDv1 (tag 18 v1)], literal (tag 11) payload, armored output via
 // Armor.encode.

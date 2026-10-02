@@ -21,7 +21,7 @@ Decisão registrada em `docs/DECISIONS/ADR-001-nativo-swift.md`.
 Mesmo nativo, comportamento de rede deve ser indistinguível de um bom cidadão SDK:
 
 - **Endpoints oficiais apenas.** Nenhum host alternativo, nenhum scraping.
-- **Header obrigatório:** `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha` em toda chamada.
+- **Header obrigatório:** `x-pm-appversion: external-drive-nucleon_transfer@0.1.0-alpha` em toda chamada.
 - **Event-based sync:** usar canal de eventos para invalidar listing; proibido polling curto.
 - **Paralelismo limitado:** 4–8 slots globais, backoff exponencial + jitter, respeitar `Retry-After` e `429`.
 - **Idempotência:** memoizar `path → nodeID`, commit com hashes, resume por bloco — evita duplicar objetos no retry.

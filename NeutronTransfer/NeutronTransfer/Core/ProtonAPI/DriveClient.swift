@@ -1,4 +1,4 @@
-// Neutron Transfer — Drive read client (F3a: metadata only, no key unlock).
+// Nucleon Transfer — Drive read client (F3a: metadata only, no key unlock).
 // Endpoints mirror rclone/go-proton-api + ProtonMail/go-proton-api:
 //   GET /drive/volumes, /drive/shares[?ShowAll=1], /drive/shares/{id},
 //   GET /drive/shares/{id}/links/{linkID},

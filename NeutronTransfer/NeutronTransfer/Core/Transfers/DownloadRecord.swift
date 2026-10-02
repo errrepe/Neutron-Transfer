@@ -1,4 +1,4 @@
-// Neutron Transfer — download history model (F6).
+// Nucleon Transfer — download history model (F6).
 // Minimal unification: uploads stay in TransferQueue (upload-specific actor,
 // NOT rewritten per F5 scope decision); downloads get a lightweight,
 // UI-observable record list so the Transfers tab shows BOTH. Pure Foundation

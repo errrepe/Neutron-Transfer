@@ -1,4 +1,4 @@
-// Neutron Transfer — PanelIntake offline tests (Swift Testing, no AppKit).
+// Nucleon Transfer — PanelIntake offline tests (Swift Testing, no AppKit).
 // Covers the cancel-vs-confirm mapping behind the async sheet panels:
 // cancel/dismiss never yields a destination (callers set "cancelled" status,
 // never proceed, never block the MainActor).

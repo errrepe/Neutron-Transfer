@@ -1,4 +1,4 @@
-// Neutron Transfer — one row in the transfers popover (F7 S3.2, spec 6.5).
+// Nucleon Transfer — one row in the transfers popover (F7 S3.2, spec 6.5).
 // Renders a TransferDisplayItem (built in Core/TransferDisplay): file icon,
 // name, subtitle (red on failure, max 2 lines) and a small progress bar for
 // in-flight rows. Action buttons are icon-only per spec 6.2 — the same

@@ -1,4 +1,4 @@
-// Neutron Transfer — Proton API error mapping.
+// Nucleon Transfer — Proton API error mapping.
 // Reference: go-proton-api client.go (401 -> refresh), manager_auth.go, proton-cli HV handling.
 import Foundation
 

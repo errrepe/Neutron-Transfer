@@ -1,4 +1,4 @@
-// Neutron Transfer — toolbar entry to the transfers popover (F7 S3.2).
+// Nucleon Transfer — toolbar entry to the transfers popover (F7 S3.2).
 // Lives in the FolderView toolbar (.primaryAction, trailing). The badge
 // counts in-flight transfers; the popover binds to
 // `TransferActivityStore.presentTransfers`, which UploadCoordinator also

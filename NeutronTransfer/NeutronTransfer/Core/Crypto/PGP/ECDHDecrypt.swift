@@ -1,4 +1,4 @@
-// Neutron Transfer — ECDH session-key decrypt (RFC 6637 §8, go-crypto ecdh.go).
+// Nucleon Transfer — ECDH session-key decrypt (RFC 6637 §8, go-crypto ecdh.go).
 // Covers v4 keys with legacy ECDH (algo 18, e.g. Cv25519): PKESK v3 holds an
 // ephemeral-point MPI + length-prefixed wrapped session. KDF = Hash over
 // (0x00000001 || ZB || Param) with legacy leading/trailing-zero workarounds.

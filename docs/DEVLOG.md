@@ -1,5 +1,7 @@
 # DEVLOG — Neutron Transfer
 
+> **2026-10-03** — o app foi renomeado para **Nucleon Transfer**; este documento usa o nome antigo por ser registro histórico.
+
 > Registro histórico do desenvolvimento. Conteúdo movido verbatim do README
 > em 2026-10-02 (S5.1), quando o README virou documentação voltada ao usuário.
 > O estado atual do projeto está no README e em `docs/ROADMAP.md`.

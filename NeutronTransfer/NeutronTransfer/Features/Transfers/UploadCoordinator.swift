@@ -1,4 +1,4 @@
-// Neutron Transfer — upload orchestration for the browser (F7 S3.1).
+// Nucleon Transfer — upload orchestration for the browser (F7 S3.1).
 // Owns the TransferQueue's live wiring for the session (uploader +
 // snapshot listener) and the intake path for drops/panel picks into the
 // CURRENT folder — unlike the legacy sheet, the destination is the

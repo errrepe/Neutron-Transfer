@@ -1,4 +1,4 @@
-// Neutron Transfer — upload queue core (F4.4).
+// Nucleon Transfer — upload queue core (F4.4).
 // Offline-testable: Foundation only (no SwiftUI/SwiftData/DriveClient here).
 // Live wiring lives in DriveUploadAdapter.swift; UI in Features/Transfers/.
 //
@@ -231,10 +231,12 @@ actor TransferQueue {
         }
     }
 
-    /// Default snapshot location: Application Support/NeutronTransfer/.
+    /// Default snapshot location: Application Support/NucleonTransfer/.
+    /// (Renamed in RN1 — the pre-rename snapshot under `NeutronTransfer/` is
+    /// abandoned, not migrated: queue resume is best-effort at alpha stage.)
     static func defaultStoreURL() -> URL? {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-        return base?.appendingPathComponent("NeutronTransfer/transfer-queue.json", isDirectory: false)
+        return base?.appendingPathComponent("NucleonTransfer/transfer-queue.json", isDirectory: false)
     }
 
     // MARK: configuration

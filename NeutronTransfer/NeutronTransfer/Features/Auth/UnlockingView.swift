@@ -1,4 +1,4 @@
-// Neutron Transfer — key-unlock progress screen (F7 S4.1).
+// Nucleon Transfer — key-unlock progress screen (F7 S4.1).
 // Shown while AppSession.phase == .unlocking: the session is in, the
 // password is decrypting the local key hierarchy. Pure status — nothing
 // to interact with, everything happens on-device.

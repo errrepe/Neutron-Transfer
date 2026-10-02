@@ -1,4 +1,4 @@
-// Neutron Transfer — one folder screen in the browser stack (F7 S2.2–S3.1).
+// Nucleon Transfer — one folder screen in the browser stack (F7 S2.2–S3.1).
 // FolderTable plus the spec-6.4 overlay states (loading / empty / filtered
 // / error), the window title + item-count subtitle, the title-menu
 // breadcrumb and the Photos read-only banner. S2.3 added the action toolbar
@@ -31,7 +31,7 @@ struct FolderView: View {
         tableWithUploadDrop
             .safeAreaInset(edge: .top, spacing: 0) {
                 if model.root.kind == .photos {
-                    Label("Photos is read-only in Neutron Transfer.", systemImage: "info.circle")
+                    Label("Photos is read-only in Nucleon Transfer.", systemImage: "info.circle")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)

@@ -1,4 +1,4 @@
-// Neutron Transfer — live download adapter (F5; S1.2 key resolver).
+// Nucleon Transfer — live download adapter (F5; S1.2 key resolver).
 // Bridges the offline-tested FileDownload core to DriveClient. Key material
 // is resolved by the session's shared NodeKeyResolver (share/node memo +
 // parent-chain walk + listing cache via `remember`), replacing this actor's

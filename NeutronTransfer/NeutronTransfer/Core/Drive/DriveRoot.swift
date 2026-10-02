@@ -1,4 +1,4 @@
-// Neutron Transfer — browsable drive roots (My Files / Photos / Computers).
+// Nucleon Transfer — browsable drive roots (My Files / Photos / Computers).
 // ShareCatalog collapses the raw ShareMetadata list into the roots the
 // sidebar shows; pure model, no I/O.
 import Foundation

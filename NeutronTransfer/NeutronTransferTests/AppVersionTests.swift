@@ -1,4 +1,4 @@
-// Neutron Transfer — AppVersion / storage-request identity tests (Swift Testing).
+// Nucleon Transfer — AppVersion / storage-request identity tests (Swift Testing).
 // Offline only: verifies the storage-host block GET identifies THIS build
 // (x-pm-appversion == AppVersion.headerValue) — never a foreign client string.
 import Foundation
@@ -10,7 +10,7 @@ struct AppVersionHeaderTests {
     @Test func headerValueIsHonestExternalDrive() {
         // ProtonDriveApps/sdk README: identify your own build honestly.
         #expect(AppVersion.headerValue.hasPrefix("external-drive-"))
-        #expect(AppVersion.headerValue.contains("neutron_transfer@"))
+        #expect(AppVersion.headerValue.contains("nucleon_transfer@"))
         // Must never claim to be another client (spoofing is forbidden).
         #expect(!AppVersion.headerValue.lowercased().contains("rclone"))
     }

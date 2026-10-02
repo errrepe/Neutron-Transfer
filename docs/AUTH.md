@@ -1,6 +1,6 @@
 # AUTH — SRP, 2FA, Session (memória, sem Keychain)
 
-> Endpoints oficiais apenas. Header obrigatório: `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha`.
+> Endpoints oficiais apenas. Header obrigatório: `x-pm-appversion: external-drive-nucleon_transfer@0.1.0-alpha`.
 
 ## 1. Fluxo completo
 

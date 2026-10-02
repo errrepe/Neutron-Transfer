@@ -1,4 +1,4 @@
-// Neutron Transfer — F6 hardening suite (Swift Testing).
+// Nucleon Transfer — F6 hardening suite (Swift Testing).
 // Offline only: error mapping, Bool-tolerant share flags, download records.
 // No network, no secrets.
 import Foundation

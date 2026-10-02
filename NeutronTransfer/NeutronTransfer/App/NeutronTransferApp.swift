@@ -1,4 +1,4 @@
-// Neutron Transfer — app entry point (F7 S4.2): a single main window
+// Nucleon Transfer — app entry point (F7 S4.2): a single main window
 // (`Window`, not WindowGroup — there is exactly one drive browser), the
 // menu commands (AppCommands), and the Settings scene. The launch `.task`
 // applies the persisted "simultaneous uploads" cap to the TransferQueue;
@@ -16,7 +16,7 @@ struct NeutronTransferApp: App {
     #endif
 
     var body: some Scene {
-        Window("Neutron Transfer", id: "main") {
+        Window("Nucleon Transfer", id: "main") {
             RootView()
                 .environment(session)
                 .task {

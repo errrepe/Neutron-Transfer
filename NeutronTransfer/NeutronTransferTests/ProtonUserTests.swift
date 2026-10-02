@@ -1,4 +1,4 @@
-// Neutron Transfer — ProtonUser account-field decoding (S0.3, Swift Testing).
+// Nucleon Transfer — ProtonUser account-field decoding (S0.3, Swift Testing).
 // /core/v4/users may omit Name/DisplayName/Email/UsedSpace/MaxSpace
 // (go-proton-api user_types.go `type User`): all are optional on our side,
 // so payloads with and without them must decode. Offline only.

@@ -1,4 +1,4 @@
-// Neutron Transfer — SED/SEIPDv1 encrypt (RFC 4880 §13.9, F4.1).
+// Nucleon Transfer — SED/SEIPDv1 encrypt (RFC 4880 §13.9, F4.1).
 // Exact inverse of SEDDecrypt + AESBlock.openPGPcfbDecrypt: random prefix +
 // check bytes, resync=true CFB for tag 9, resync=false CFB + MDC (SHA-1 over
 // full prefix + data + D3 14) for tag 18 v1.

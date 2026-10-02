@@ -1,4 +1,4 @@
-// Neutron Transfer — EksBlowfish key schedule + bcrypt digest.
+// Nucleon Transfer — EksBlowfish key schedule + bcrypt digest.
 // Algorithm adapted from vapor-community/bcrypt Hash.swift (MIT) with native
 // Swift types ([UInt8], no external Core/Random/Debugging deps).
 // Verifiable against the canonical vector:

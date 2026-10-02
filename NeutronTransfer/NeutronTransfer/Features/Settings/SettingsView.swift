@@ -1,4 +1,4 @@
-// Neutron Transfer — Settings scene (F7 S4.2), opened with ⌘,.
+// Nucleon Transfer — Settings scene (F7 S4.2), opened with ⌘,.
 // General: the "simultaneous uploads" cap — persisted in @AppStorage and
 // applied to the TransferQueue on change (the app scene's launch .task
 // applies the stored value; SettingsView only exists on demand).
@@ -16,7 +16,7 @@ enum AppSettings {
 /// About-panel copy (spec 6.6) — shared by the App menu's About command
 /// (shown in the standard panel's credits) and the Settings › About tab.
 enum AboutContent {
-    static let disclaimer = "Neutron Transfer is an independent, open-source app. It is not affiliated with or endorsed by Proton AG. Your password is used only to sign in and unlock your keys on this Mac — it is never stored."
+    static let disclaimer = "Nucleon Transfer is an independent, open-source app. It is not affiliated with or endorsed by Proton AG. Your password is used only to sign in and unlock your keys on this Mac — it is never stored."
     static let sourceCodeURL = URL(string: "https://github.com/errrepe/Neutron-Transfer")
 }
 
@@ -57,7 +57,7 @@ struct SettingsView: View {
                 .resizable()
                 .frame(width: 64, height: 64)
                 .accessibilityHidden(true)
-            Text("Neutron Transfer")
+            Text("Nucleon Transfer")
                 .font(.title3)
                 .bold()
             Text("Version \(versionString)")

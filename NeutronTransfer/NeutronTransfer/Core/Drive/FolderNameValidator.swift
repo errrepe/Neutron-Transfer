@@ -1,4 +1,4 @@
-// Neutron Transfer — new-folder name validation (F7 S2.3 / F7.1 R5).
+// Nucleon Transfer — new-folder name validation (F7 S2.3 / F7.1 R5).
 // Pure value checks for the New Folder sheet + FolderOperations: the rules
 // mirror what Proton Drive clients enforce before hitting the API (the
 // server answers duplicates with 2500/AlreadyExists, but bad names should

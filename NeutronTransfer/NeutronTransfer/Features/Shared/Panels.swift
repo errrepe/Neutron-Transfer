@@ -1,4 +1,4 @@
-// Neutron Transfer — shared NSOpenPanel presenters (F7 S2.3).
+// Nucleon Transfer — shared NSOpenPanel presenters (F7 S2.3).
 // Single home for the app's file/folder pickers so browser, transfers and
 // future upload flows share ONE non-blocking pattern: sheet on the key
 // window, app-modal fallback when there is no key window, never a nested

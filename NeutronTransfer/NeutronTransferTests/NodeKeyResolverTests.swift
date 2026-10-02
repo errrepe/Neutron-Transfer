@@ -1,4 +1,4 @@
-// Neutron Transfer — NodeKeyResolver suite (S1.2, Swift Testing).
+// Nucleon Transfer — NodeKeyResolver suite (S1.2, Swift Testing).
 // Fake source + fake unlocker: no real crypto, no network. Fake keys are
 // marked by `keyID` = the link/share id they claim to unlock, and the fake
 // unlockNode records which parent candidates it received (via the mark

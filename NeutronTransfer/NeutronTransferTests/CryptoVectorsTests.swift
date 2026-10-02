@@ -1,4 +1,4 @@
-// Neutron Transfer — offline crypto vector suite (Swift Testing).
+// Nucleon Transfer — offline crypto vector suite (Swift Testing).
 // Every vector is independently verified: RFC text, Python reference
 // implementations, or synthetic interop fixtures. NO network, NO secrets.
 // Slow ops (cost-10 bcrypt ~0.5s debug) are kept to a minimum.

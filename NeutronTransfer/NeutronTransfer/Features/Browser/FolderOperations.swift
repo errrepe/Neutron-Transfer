@@ -1,4 +1,4 @@
-// Neutron Transfer — browser folder write ops (F7 S2.3).
+// Nucleon Transfer — browser folder write ops (F7 S2.3).
 // Thin @MainActor façade over DriveClient + NodeKeyResolver for the two
 // folder-mutating browser actions: create and trash. Both publish the
 // touched parent via TransferActivityStore.remoteChanged so the browser

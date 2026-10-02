@@ -1,4 +1,4 @@
-// Neutron Transfer — expandHash per go-srp/hash.go
+// Nucleon Transfer — expandHash per go-srp/hash.go
 // expandHash(data) = SHA512(data||0) || SHA512(data||1) || SHA512(data||2) || SHA512(data||3)
 import CryptoKit
 import Foundation

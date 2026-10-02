@@ -1,4 +1,4 @@
-// Neutron Transfer — third-party client, not affiliated with Proton.
+// Nucleon Transfer — third-party client, not affiliated with Proton.
 import Foundation
 
 /// Honest client identification required by Proton's third-party rules
@@ -8,6 +8,6 @@ import Foundation
 /// masquerading as another client is forbidden and may get the build blocked.
 /// Shape: external-drive-{name}@{semver}-{channel}. Never spoof web-drive/*.
 enum AppVersion {
-    static let headerValue = "external-drive-neutron_transfer@0.1.0-alpha"
+    static let headerValue = "external-drive-nucleon_transfer@0.1.0-alpha"
     static let baseURL = URL(string: "https://mail.proton.me/api")!
 }

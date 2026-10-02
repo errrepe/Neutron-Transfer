@@ -1,4 +1,4 @@
-// Neutron Transfer — in-memory unlocked key seeds (F3b-1: user keys).
+// Nucleon Transfer — in-memory unlocked key seeds (F3b-1: user keys).
 // Seeds live ONLY in this actor's memory: never Keychain, never disk, never logs.
 // Salted pass comes from SessionManager.fetchSaltedKeyPass (password scope).
 import Foundation

@@ -1,4 +1,4 @@
-// Neutron Transfer — display strings for sizes, quota and item counts.
+// Nucleon Transfer — display strings for sizes, quota and item counts.
 // Byte strings come from ByteCountFormatStyle (.file style, decimal units)
 // so listings read like Finder.
 import Foundation

@@ -1,4 +1,4 @@
-// Neutron Transfer — SED/SEIPDv1 decrypt + literal extraction (F3b-2).
+// Nucleon Transfer — SED/SEIPDv1 decrypt + literal extraction (F3b-2).
 // Tag 9 (SED, no integrity) and tag 18 v1 (MDC SHA-1) share the CFB framing;
 // only tag 18 carries the trailing MDC packet (0xD3 0x14 + 20-byte digest).
 import Foundation

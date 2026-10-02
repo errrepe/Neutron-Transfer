@@ -1,4 +1,4 @@
-// Neutron Transfer — BcryptHasher matching go-srp bcryptHash semantics:
+// Nucleon Transfer — BcryptHasher matching go-srp bcryptHash semantics:
 // input "$2y$10$<22-char dot-slash salt>", cost 10, output = full 60-char
 // hash string bytes ("$2y$10$<salt22><digest31>"), which SRP expands with the modulus.
 // $2a$/$2x$/$2y$ share the EksBlowfish core; ASCII passwords hash identically.

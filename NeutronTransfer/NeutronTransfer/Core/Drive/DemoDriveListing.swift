@@ -1,4 +1,4 @@
-// Neutron Transfer — DEBUG-only offline demo drive for QA + screenshots (R1).
+// Nucleon Transfer — DEBUG-only offline demo drive for QA + screenshots (R1).
 // A fixed tree behind DriveListingProviding with ~250 ms of fake latency so
 // loading states render; "Broken Folder" throws a transport error to reach
 // the browser's error state. No network, no keys — signing out of demo lands

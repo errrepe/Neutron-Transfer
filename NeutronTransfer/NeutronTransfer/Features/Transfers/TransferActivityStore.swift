@@ -1,4 +1,4 @@
-// Neutron Transfer — shared transfers activity (F6; S2.3 progress +
+// Nucleon Transfer — shared transfers activity (F6; S2.3 progress +
 // remote-changed signal).
 // Minimal upload+download unification WITHOUT rewriting TransferQueue:
 // uploads stay in the TransferQueue actor; downloads (F5 dedicated

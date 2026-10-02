@@ -1,4 +1,4 @@
-// Neutron Transfer — user-facing error mapping (F6).
+// Nucleon Transfer — user-facing error mapping (F6).
 // Every network/crypto/API failure on a user path must surface in the UI
 // with an ACTIONABLE message (no silent prints, no raw dumps). This mapper
 // is pure (Foundation only) so it is offline-testable; view-models call it

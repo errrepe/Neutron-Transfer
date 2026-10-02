@@ -1,4 +1,4 @@
-// Neutron Transfer — session root: single DI container + auth lifecycle (F7).
+// Nucleon Transfer — session root: single DI container + auth lifecycle (F7).
 // Owns the ONLY SessionManager / KeyringCache / DriveClient / TransferQueue /
 // TransferActivityStore; views read them via .environment (injected at the
 // WindowGroup). Secrets stay inside the owning actors, memory only; the

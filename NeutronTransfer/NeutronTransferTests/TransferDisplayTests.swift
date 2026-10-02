@@ -1,4 +1,4 @@
-// Neutron Transfer — S3.2 transfers-popover mapping suite (Swift Testing).
+// Nucleon Transfer — S3.2 transfers-popover mapping suite (Swift Testing).
 // Covers TransferJob/DownloadRecord → TransferDisplayItem subtitles,
 // section grouping, ordering and the badge count. Pure Core, no network.
 import Foundation

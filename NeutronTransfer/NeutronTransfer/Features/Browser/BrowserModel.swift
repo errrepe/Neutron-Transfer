@@ -1,4 +1,4 @@
-// Neutron Transfer — folder browser state for one drive root (F7 S2.2).
+// Nucleon Transfer — folder browser state for one drive root (F7 S2.2).
 // Owns the NavigationStack path, a per-folder listing cache, selection,
 // sort order and the filter text. All network + name decryption stays
 // inside the DriveListing actor; this model only reorders and caches the

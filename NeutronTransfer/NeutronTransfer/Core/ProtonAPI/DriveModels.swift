@@ -1,4 +1,4 @@
-// Neutron Transfer — Drive read models.
+// Nucleon Transfer — Drive read models.
 // Shapes mirror rclone/go-proton-api share_types.go, volume_types.go and
 // ProtonMail/go-proton-api link_types.go (default encoding/json => keys are
 // the capitalized Go field names). IDs and names are encrypted blobs here;

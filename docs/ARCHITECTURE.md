@@ -1,4 +1,4 @@
-# ARCHITECTURE — Neutron Transfer
+# ARCHITECTURE — Nucleon Transfer
 
 > Status: alpha. Native macOS 26 SwiftUI, Swift 6 strict concurrency.
 > Reflects the real tree after F7 (2026-10-02).
@@ -123,7 +123,7 @@ sorted pure-Swift models for the `Table`. Also classifies roots
 ## 6. TransferQueue — JSON, not SwiftData
 
 The upload queue is an actor owning a `Codable` snapshot persisted
-atomically to `Application Support/NeutronTransfer/transfer-queue.json`.
+atomically to `Application Support/NucleonTransfer/transfer-queue.json`.
 Rationale: an actor + snapshot has fewer failure modes than a `@Model`
 graph + `ModelContext`. The snapshot holds paths/IDs/progress only — never
 secrets (enforced by `snapshotHoldsNoSecrets`). `uploading` → `queued` on
@@ -180,7 +180,7 @@ See `docs/TRANSFERS.md` for the full wire protocol. Summary:
 - **Download:** `NSOpenPanel` destination → per file: unlock node →
   `openContentKey` → revision → blocks in a sliding-window TaskGroup
   (default 4) → SHA-256 verify per block BEFORE decrypt (fail-closed) →
-  `reassemble` → atomic `*.neutron-part` → rename → `uniqueDestination`
+  `reassemble` → atomic `*.nucleon-part` → rename → `uniqueDestination`
   (`nome (1).ext`). Folders recurse via `downloadTree`.
 
 ## 9. Concurrency
@@ -199,7 +199,7 @@ See `docs/TRANSFERS.md` for the full wire protocol. Summary:
 - Official endpoints only; base URL `https://mail.proton.me/api`; storage
   host taken from `BareURL` at runtime (never hardcoded).
 - Honest header on EVERY call (API + storage):
-  `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha`.
+  `x-pm-appversion: external-drive-nucleon_transfer@0.1.0-alpha`.
 - No polling loops; event-based sync is on the backlog (B3) — until then
   listings refresh on demand and after local operations via
   `activity.remoteChanged(parentLinkIDs:)` → targeted `BrowserModel` reload.

@@ -1,4 +1,4 @@
-// Neutron Transfer — login screen (F7 S4.1, spec 6.6).
+// Nucleon Transfer — login screen (F7 S4.1, spec 6.6).
 // Centered auth card: app icon + title, grouped credentials form, inline
 // error (announced to VoiceOver), prominent Sign In that swaps to a
 // spinner while SRP runs, then the third-party disclaimer. Credentials go
@@ -28,7 +28,7 @@ struct LoginView: View {
                 .resizable()
                 .frame(width: 64, height: 64)
                 .accessibilityHidden(true)
-            Text("Neutron Transfer")
+            Text("Nucleon Transfer")
                 .font(.largeTitle.weight(.semibold))
             Text("Sign in with your Proton account")
                 .foregroundStyle(.secondary)
@@ -86,7 +86,7 @@ struct LoginView: View {
             .frame(width: 360)
             Divider()
                 .frame(width: 360)
-            Text("Neutron Transfer is an independent, open-source app. It is not affiliated with or endorsed by Proton AG. Your password is used only to sign in and unlock your keys on this Mac — it is never stored.")
+            Text("Nucleon Transfer is an independent, open-source app. It is not affiliated with or endorsed by Proton AG. Your password is used only to sign in and unlock your keys on this Mac — it is never stored.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

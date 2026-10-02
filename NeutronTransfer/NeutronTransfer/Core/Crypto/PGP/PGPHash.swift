@@ -1,4 +1,4 @@
-// Neutron Transfer — OpenPGP hashes + string-to-key (RFC 4880 §3.6/3.7).
+// Nucleon Transfer — OpenPGP hashes + string-to-key (RFC 4880 §3.6/3.7).
 // Hash IDs: 1 MD5, 2 SHA-1, 8 SHA-256, 9 SHA-384, 10 SHA-512, 11 SHA-224.
 import CommonCrypto
 import CryptoKit

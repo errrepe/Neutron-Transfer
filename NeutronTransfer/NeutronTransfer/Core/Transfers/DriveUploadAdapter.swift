@@ -1,4 +1,4 @@
-// Neutron Transfer — live upload adapter (F4.4; S1.2 key resolver).
+// Nucleon Transfer — live upload adapter (F4.4; S1.2 key resolver).
 // Bridges TransferQueue's offline-tested core to the live-verified F4.2/F4.3
 // path (DriveClient.createFolder / uploadFile). Key material is resolved by
 // the session's shared NodeKeyResolver (share/node memo + parent-chain

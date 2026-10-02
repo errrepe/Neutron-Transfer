@@ -1,4 +1,4 @@
-// Neutron Transfer — root switch between the signed-in shell and the auth
+// Nucleon Transfer — root switch between the signed-in shell and the auth
 // flow (F7 S4.1). One screen per phase: login covers signedOut + signingIn
 // (its own busy sub-state), needsTwoFactor gets the TOTP prompt, unlocking
 // the key-decryption spinner — all crossfading on a short opacity.

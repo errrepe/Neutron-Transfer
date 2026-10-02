@@ -1,4 +1,4 @@
-// Neutron Transfer — single-file upload (F4.3).
+// Nucleon Transfer — single-file upload (F4.3).
 // Pure crypto + request builders; network lives in DriveClient (one method
 // per stage so the live battery can probe draft/blocks/commit incrementally).
 //

@@ -1,4 +1,4 @@
-// Neutron Transfer — offline sample data for SwiftUI previews (F7 S2.x).
+// Nucleon Transfer — offline sample data for SwiftUI previews (F7 S2.x).
 // Pure value-type fixtures: no network, no disk, deterministic dates so
 // rendered previews are stable. DEBUG-only — never ships.
 #if DEBUG

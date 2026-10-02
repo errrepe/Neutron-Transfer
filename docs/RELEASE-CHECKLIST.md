@@ -1,10 +1,10 @@
-# Release checklist — Neutron Transfer v0.1.0-alpha
+# Release checklist — Nucleon Transfer v0.1.0-alpha
 
 Direct distribution (Developer ID + notarization). **No App Store** — the app
 is sandboxed with hardened runtime; there is no App Store Connect step.
 
 Target artifact: `NeutronTransfer-0.1.0-alpha.zip` containing
-`NeutronTransfer.app` (arm64, macOS 26+, `dev.neutron.NeutronTransfer`).
+`NeutronTransfer.app` (arm64, macOS 26+, `dev.nucleon.NucleonTransfer`).
 
 ## Pre-flight (automated, already verified — S5.2)
 
@@ -98,7 +98,7 @@ ditto -c -k --sequesterRsrc --keepParent NeutronTransfer.app \
 shasum -a 256 NeutronTransfer-0.1.0-alpha.zip
 # paste the digest into the release notes
 
-git tag -a v0.1.0-alpha -m "Neutron Transfer 0.1.0-alpha — first public alpha"
+git tag -a v0.1.0-alpha -m "Nucleon Transfer 0.1.0-alpha — first public alpha"
 git push origin v0.1.0-alpha
 
 # GitHub release
@@ -111,7 +111,7 @@ gh release create v0.1.0-alpha \
 ## Release notes template (`docs/release-notes-v0.1.0-alpha.md`)
 
 ```markdown
-# Neutron Transfer 0.1.0-alpha
+# Nucleon Transfer 0.1.0-alpha
 
 First public alpha of a native macOS client for Proton Drive (unofficial —
 not affiliated with or endorsed by Proton AG).

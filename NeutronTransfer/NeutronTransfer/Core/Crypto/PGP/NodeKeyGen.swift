@@ -1,4 +1,4 @@
-// Neutron Transfer — client-side node-key generation (F4.2).
+// Nucleon Transfer — client-side node-key generation (F4.2).
 // Mirrors gopenpgp helper.GenerateKey("Drive key", ..., "x25519", 0) used by
 // Proton-API-Bridge/rclone for new folder/file nodes: a fresh Ed25519
 // primary (algo 22) + X25519 subkey (algo 18, legacy ECDH KDF 03 01 08 07),

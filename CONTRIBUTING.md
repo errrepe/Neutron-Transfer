@@ -1,10 +1,10 @@
-# CONTRIBUTING — Neutron Transfer
+# CONTRIBUTING — Nucleon Transfer
 
 ## 1. Principles
 
 - Native macOS SwiftUI, Swift 6 strict concurrency. No new warnings.
 - Official endpoints only + header
-  `x-pm-appversion: external-drive-neutron_transfer@0.1.0-alpha` on every call.
+  `x-pm-appversion: external-drive-nucleon_transfer@0.1.0-alpha` on every call.
 - No Proton logos, no claim of official support. Keep the third-party
   disclaimer wherever credentials are requested.
 - Docs before code on architectural changes (update `docs/` + an ADR if it

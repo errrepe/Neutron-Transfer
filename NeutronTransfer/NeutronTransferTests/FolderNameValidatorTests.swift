@@ -1,4 +1,4 @@
-// Neutron Transfer — FolderNameValidator offline tests (Swift Testing).
+// Nucleon Transfer — FolderNameValidator offline tests (Swift Testing).
 // Pure validation rules for the New Folder sheet: trim, empty, invalid
 // characters, reserved names, UTF-8 byte cap, NFC normalization and the
 // R5 same-folder duplicate check (folders and files alike).

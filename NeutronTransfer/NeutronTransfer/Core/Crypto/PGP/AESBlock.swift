@@ -1,4 +1,4 @@
-// Neutron Transfer — AES single-block + OpenPGP CFB (RFC 4880 §13.9).
+// Nucleon Transfer — AES single-block + OpenPGP CFB (RFC 4880 §13.9).
 // CryptoKit has no ECB/CFB; CommonCrypto CCCrypt provides the raw block op.
 import CommonCrypto
 import Foundation

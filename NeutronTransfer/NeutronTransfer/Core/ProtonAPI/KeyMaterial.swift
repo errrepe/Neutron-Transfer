@@ -1,4 +1,4 @@
-// Neutron Transfer — key-material models + salted key password.
+// Nucleon Transfer — key-material models + salted key password.
 // Flow (mirrors rclone/Proton-API-Bridge common/keyring.go + user.go):
 //   GET /core/v4/keys/salts (password scope only, shortly after login)
 //   -> find salt for primary user key ID

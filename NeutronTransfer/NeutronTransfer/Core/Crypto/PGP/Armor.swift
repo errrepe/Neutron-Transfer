@@ -1,4 +1,4 @@
-// Neutron Transfer — ASCII armor decode (RFC 4880 §6). CRC24 is not enforced
+// Nucleon Transfer — ASCII armor decode (RFC 4880 §6). CRC24 is not enforced
 // (secret keys carry an internal SHA-1 checksum that IS verified on unlock).
 import Foundation
 

@@ -1,4 +1,4 @@
-// Neutron Transfer — folder-creation material (F4.2).
+// Nucleon Transfer — folder-creation material (F4.2).
 // Builds POST /drive/shares/{shareID}/folders requests exactly like Proton
 // clients (go-proton-api CreateFolderReq + Proton-API-Bridge CreateNewFolder):
 // fresh node keypair + passphrase per folder, passphrase encrypted to the

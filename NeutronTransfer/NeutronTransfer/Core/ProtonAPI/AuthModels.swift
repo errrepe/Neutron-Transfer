@@ -1,4 +1,4 @@
-// Neutron Transfer — Auth models mirroring go-proton-api manager_auth_types.go
+// Nucleon Transfer — Auth models mirroring go-proton-api manager_auth_types.go
 // Endpoints: POST /auth/v4/info, POST /auth/v4, POST /auth/v4/2fa, POST /auth/v4/refresh
 import Foundation
 

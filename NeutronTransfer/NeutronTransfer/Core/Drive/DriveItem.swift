@@ -1,4 +1,4 @@
-// Neutron Transfer — one row in a drive listing (file or folder).
+// Nucleon Transfer — one row in a drive listing (file or folder).
 // Built from a wire DriveLink plus its decrypted name (F3b chain); pure
 // value type for table/outline display.
 import Foundation

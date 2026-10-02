@@ -1,4 +1,4 @@
-// Neutron Transfer — duplicate-name conflict policy for uploads (F7.1 R4).
+// Nucleon Transfer — duplicate-name conflict policy for uploads (F7.1 R4).
 // Pure, testable decision layer for "the server says this folder name
 // already exists": isDuplicateName recognizes the API answer, resolve()
 // picks merge-vs-fail given the parent's decrypted children. The single

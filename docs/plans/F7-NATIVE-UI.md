@@ -1,5 +1,7 @@
 # F7: UI nativa + polimento para release open source
 
+> **2026-10-03** — o app foi renomeado para **Nucleon Transfer**; este documento usa o nome antigo por ser registro histórico.
+
 > **Público:** o agente orquestrador e os subagentes que ele dispara.
 > **Escrito em:** 2026-10-01, a partir de uma auditoria do repo (commit `19267d3`).
 > **Objetivo:** transformar o protótipo (painel de debug com abas) num app macOS

@@ -1,4 +1,4 @@
-// Neutron Transfer — bcrypt variant base64 ("./A-Za-z0-9", no padding).
+// Nucleon Transfer — bcrypt variant base64 ("./A-Za-z0-9", no padding).
 // Encode/decode logic mirrors vapor-community/bcrypt Base64.swift (MIT)
 // with native UInt8 tables.
 enum BcryptBase64 {

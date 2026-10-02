@@ -1,4 +1,4 @@
-// Neutron Transfer — session orchestrator (memory only, like the official
+// Nucleon Transfer — session orchestrator (memory only, like the official
 // Proton Drive app: no Keychain, no disk persistence; re-login each launch).
 // Flow: info -> hashPassword(v4, bcrypt) -> SRP proofs -> /auth/v4
 //       -> verify serverProof -> optional 2FA.

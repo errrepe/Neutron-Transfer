@@ -1,4 +1,4 @@
-// Neutron Transfer — AES Key Wrap/Unwrap (RFC 3394 §2.2, index-based).
+// Nucleon Transfer — AES Key Wrap/Unwrap (RFC 3394 §2.2, index-based).
 // Used by ECDH session-key packets. Unwrap enforces the A6..A6 integrity check.
 import Foundation
 
