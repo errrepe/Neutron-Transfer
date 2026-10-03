@@ -13,12 +13,11 @@ server-side allowlist — see Known limitations.)
 > unlock your keys on this Mac — it is never stored.
 
 <!-- TODO(maintainer): capture docs/images/main-window.png before release -->
-![Main window](docs/images/main-window.png)
 
 ## Status
 
 `0.1.0-alpha`. All crypto, networking and the native UI are implemented and
-verified; the offline test suite is green (`swift test`, 171 tests). This is an
+verified; the offline test suite is green (`swift test`, 198 tests). This is an
 alpha: expect rough edges and read the known limitations below.
 
 ## Features
