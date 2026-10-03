@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/app-icon.png" width="160" alt="Nucleon Transfer icon">
+</p>
+
 # Nucleon Transfer
 
 Nucleon Transfer is a native macOS client for Proton Drive focused on what the
