@@ -17,7 +17,7 @@ enum AppSettings {
 /// (shown in the standard panel's credits) and the Settings › About tab.
 enum AboutContent {
     static let disclaimer = "Nucleon Transfer is an independent, open-source app. It is not affiliated with or endorsed by Proton AG. Your password is used only to sign in and unlock your keys on this Mac — it is never stored."
-    static let sourceCodeURL = URL(string: "https://github.com/errrepe/Neutron-Transfer")
+    static let sourceCodeURL = URL(string: "https://github.com/errrepe/Nucleon-Transfer")
 }
 
 struct SettingsView: View {

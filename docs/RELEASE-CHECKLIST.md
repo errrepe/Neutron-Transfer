@@ -36,7 +36,7 @@ Target artifact: `NucleonTransfer-0.1.0-alpha.zip` containing
 - [ ] **Screenshot:** README references `docs/images/main-window.png`
       (`TODO(maintainer)` line 15) — capture it on a clean session.
 - [ ] **Repo URL in README:** no link to
-      `https://github.com/errrepe/Neutron-Transfer` anywhere in
+      `https://github.com/errrepe/Nucleon-Transfer` anywhere in
       README/CONTRIBUTING/SECURITY (in-app About link is already correct).
 - [ ] **Contact channel in SECURITY.md:** "contact the maintainer (channel
       to be defined)" — pick one (GitHub private vulnerability reporting or
@@ -138,7 +138,7 @@ not affiliated with or endorsed by Proton AG).
 SHA-256 of `NucleonTransfer-0.1.0-alpha.zip`: `<shasum -a 256 output>`
 
 Signed with Developer ID, notarized by Apple, sandboxed, hardened runtime.
-Source: https://github.com/errrepe/Neutron-Transfer (MIT).
+Source: https://github.com/errrepe/Nucleon-Transfer (MIT).
 ```
 
 ## Post-release
